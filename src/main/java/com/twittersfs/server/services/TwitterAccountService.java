@@ -1,7 +1,11 @@
 package com.twittersfs.server.services;
 
+import com.twittersfs.server.dtos.common.PageableResponse;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountCreate;
+import com.twittersfs.server.dtos.twitter.account.TwitterAccountData;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountUpdate;
+import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageDto;
+import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.enums.TwitterAccountStatus;
 
 import java.net.UnknownHostException;
@@ -15,4 +19,8 @@ public interface TwitterAccountService {
     void updateTwitterAccount(Long twitterAccountId, TwitterAccountUpdate dto) throws UnknownHostException;
     void deleteTwitterAccount(Long twitterAccountId);
     void deleteProxyFromTwitterAccount(Long twitterAccountId);
+    void updateSubscription(Long twitterAccountId, Integer month);
+    void addChatMessage(Long twitterAccountId, TwitterChatMessageDto dto);
+    void deleteChatMessage(Long messageId);
+    PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(String email, TwitterAccountStatus status, int page, int size);
 }

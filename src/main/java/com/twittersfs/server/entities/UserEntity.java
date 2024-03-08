@@ -18,7 +18,7 @@ public class UserEntity {
     private Long id;
     private String password;
     private String email;
-    private Integer balance;
+    private Float balance;
     @Enumerated(EnumType.STRING)
     private Role role;
     @Enumerated(EnumType.STRING)

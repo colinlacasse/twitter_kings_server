@@ -1,17 +1,22 @@
 package com.twittersfs.server.services;
 
 import com.twittersfs.server.entities.ModelEntity;
+import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.entities.UserEntity;
 import com.twittersfs.server.enums.Role;
 import com.twittersfs.server.enums.SubscriptionType;
 import com.twittersfs.server.dtos.model.ModelDto;
 import com.twittersfs.server.dtos.user.UserData;
 import com.twittersfs.server.dtos.user.UserRegister;
+import com.twittersfs.server.enums.TwitterAccountStatus;
 import com.twittersfs.server.repos.UserEntityRepo;
 import com.twittersfs.server.security.AuthDto;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -53,8 +58,44 @@ public class UserServiceImpl implements UserService {
         userRepo.save(user);
     }
 
-    private UserData fromUserEntity(UserEntity entity){
+    private UserData fromUserEntity(UserEntity entity) {
+        int disabled = 0;
+        int active = 0;
+        int cooldown = 0;
+        int locked = 0;
+        int invalid = 0;
+        int suspended = 0;
+        int error = 0;
+        List<ModelEntity> models = entity.getModelEntities();
+        List<TwitterAccount> twitterAccounts = models.stream()
+                .flatMap(modelEntity -> modelEntity.getTwitterAccounts().stream()).toList();
+
+        for (TwitterAccount twitterAccount : twitterAccounts) {
+            if (twitterAccount.getStatus().equals(TwitterAccountStatus.DISABLED)) {
+                disabled++;
+            } else if (twitterAccount.getStatus().equals(TwitterAccountStatus.ACTIVE)) {
+                active++;
+            } else if (twitterAccount.getStatus().equals(TwitterAccountStatus.COOLDOWN)) {
+                cooldown++;
+            } else if (twitterAccount.getStatus().equals(TwitterAccountStatus.LOCKED)) {
+                locked++;
+            } else if (twitterAccount.getStatus().equals(TwitterAccountStatus.INVALID_COOKIES)) {
+                invalid++;
+            } else if (twitterAccount.getStatus().equals(TwitterAccountStatus.SUSPENDED)) {
+                suspended++;
+            } else if (twitterAccount.getStatus().equals(TwitterAccountStatus.UNEXPECTED_ERROR)) {
+                error++;
+            }
+        }
         return UserData.builder()
+                .active(active)
+                .cooldown(cooldown)
+                .disabled(disabled)
+                .suspended(suspended)
+                .error(error)
+                .invalid(invalid)
+                .locked(locked)
+                .subscription(entity.getSubscriptionType())
                 .balance(entity.getBalance())
                 .models(toTwitterAccountDatasFromEntities(entity.getModelEntities()))
                 .build();
@@ -64,17 +105,18 @@ public class UserServiceImpl implements UserService {
         return entities.stream().map(this::fromModelEntity).collect(Collectors.toList());
     }
 
-    private ModelDto fromModelEntity(ModelEntity entity){
+    private ModelDto fromModelEntity(ModelEntity entity) {
         return ModelDto.builder()
                 .id(entity.getId())
                 .name(entity.getName())
+                .accounts(entity.getTwitterAccounts().size())
                 .build();
     }
 
     private UserEntity fromUserRegisterDto(UserRegister dto) {
         String email = dto.getEmail().toLowerCase().trim();
         return UserEntity.builder()
-                .balance(0)
+                .balance(1F)
                 .email(email)
                 .password(passwordEncoder.encode(dto.getPassword()))
                 .role(Role.USER)

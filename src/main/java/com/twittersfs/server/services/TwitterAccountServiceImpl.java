@@ -1,7 +1,10 @@
 package com.twittersfs.server.services;
 
 import com.twittersfs.server.constants.AppConstant;
+import com.twittersfs.server.dtos.common.PageableResponse;
+import com.twittersfs.server.dtos.twitter.account.TwitterAccountData;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountUpdate;
+import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageDto;
 import com.twittersfs.server.entities.*;
 import com.twittersfs.server.enums.Prices;
 import com.twittersfs.server.enums.TwitterAccountStatus;
@@ -10,13 +13,17 @@ import com.twittersfs.server.dtos.twitter.account.TwitterAccountCreate;
 import com.twittersfs.server.repos.*;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.nonNull;
 
@@ -41,7 +48,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     @Transactional
     public void createTwitterAccount(String email, Long modelId, TwitterAccountCreate dto) throws UnknownHostException {
         UserEntity user = userRepo.findByEmail(email);
-        if (user.getBalance() >= Prices.X_MONTH_SUBSCRIPTION.getValue()) {
+        if (user.getBalance() >= Prices.X_DAY_SUBSCRIPTION.getValue()) {
             Proxy proxyToSave = parseProxy(dto.getProxy());
             Optional<Proxy> prx = proxyRepo.findByIpAndPort(proxyToSave.getIp(), proxyToSave.getPort());
 
@@ -57,18 +64,18 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                     .orElseThrow(() -> new RuntimeException("Model with such id does not exist"));
 
             Optional<TwitterAccount> twitterAccount = twitterAccountRepo
-                    .findByUsernameAndModel_Id(parseTwitterUsername(dto.getUsername()), modelId);
+                    .findByUsername(parseTwitterUsername(dto.getUsername()));
             if (twitterAccount.isEmpty()) {
                 twitterAccountRepo.save(fromTwitterCreate(proxy, modelEntity, dto));
             } else {
-                throw new RuntimeException("Twitter account with such username at this model already exists");
+                throw new RuntimeException("Twitter account with such username already exists");
             }
 
-            TwitterAccount account = twitterAccountRepo.findByUsernameAndModel_Id(parseTwitterUsername(dto.getUsername()), modelId)
-                    .orElseThrow(() -> new RuntimeException("Twitter account with such username at this model does not exist"));
+            TwitterAccount account = twitterAccountRepo.findByUsername(parseTwitterUsername(dto.getUsername()))
+                    .orElseThrow(() -> new RuntimeException("Twitter account with such username does not exist"));
             messageRepo.save(toChatMessageEntity(dto.getMessage(), account));
-            Integer balance = user.getBalance();
-            user.setBalance(balance - Prices.X_MONTH_SUBSCRIPTION.getValue());
+            Float balance = user.getBalance();
+            user.setBalance(balance - Prices.X_DAY_SUBSCRIPTION.getValue());
             userRepo.save(user);
         } else {
             throw new NotEnoughFunds("Not enough funds, top up your balance");
@@ -96,7 +103,13 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         }
         if (nonNull(dto.getUsername())) {
             String username = parseTwitterUsername(dto.getUsername());
-            twitterAccountRepo.updateUsername(twitterAccountId, username);
+            Optional<TwitterAccount> twitterAccount = twitterAccountRepo
+                    .findByUsername(parseTwitterUsername(username));
+            if (twitterAccount.isEmpty()) {
+                twitterAccountRepo.updateUsername(twitterAccountId, username);
+            } else {
+                throw new RuntimeException("Twitter account with such username already exists");
+            }
         }
         if (nonNull(dto.getEmail())) {
             String email = dto.getEmail().toLowerCase().trim();
@@ -136,9 +149,72 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     public void deleteTwitterAccount(Long twitterAccountId) {
         TwitterAccount account = twitterAccountRepo.findById(twitterAccountId)
                 .orElseThrow(() -> new RuntimeException("Twitter account wish such Id does not exist"));
+        LocalDateTime payedTo = account.getPayedTo();
+        Integer daysRemaining = calculateDaysRemaining(payedTo);
+        Float newBalance = daysRemaining * Prices.X_DAY_SUBSCRIPTION.getValue();
+        UserEntity user = account.getModel().getUser();
+        user.setBalance(user.getBalance() + newBalance);
         account.setModel(null);
+        userRepo.save(user);
         twitterAccountRepo.save(account);
         twitterAccountRepo.delete(account);
+    }
+
+    @Override
+    @Transactional
+    public void updateSubscription(Long twitterAccountId, Integer month) {
+        TwitterAccount twitterAccount = twitterAccountRepo.findById(twitterAccountId)
+                .orElseThrow(() -> new RuntimeException("Twitter account wish such Id does not exist"));
+        if (nonNull(twitterAccount.getPayedTo())) {
+            twitterAccount.setPayedTo(setExpirationDate(twitterAccount.getPayedTo(), month));
+        } else {
+            twitterAccount.setPayedTo(setExpirationDate(LocalDateTime.now(), month));
+        }
+        UserEntity user = twitterAccount.getModel().getUser();
+        Float toPay = null;
+        switch (month) {
+            case 1 -> toPay = Prices.X_MONTH_SUBSCRIPTION.getValue();
+            case 2 -> toPay = Prices.X_2MONTH_SUBSCRIPTION.getValue();
+            case 3 -> toPay = Prices.X_3MONTH_SUBSCRIPTION.getValue();
+            case 6 -> toPay = Prices.X_6MONTH_SUBSCRIPTION.getValue();
+            case 12 -> toPay = Prices.X_12MONTH_SUBSCRIPTION.getValue();
+        }
+        if (nonNull(toPay)) {
+            if (user.getBalance() >= toPay) {
+                user.setBalance(user.getBalance() - toPay);
+                userRepo.save(user);
+                twitterAccountRepo.save(twitterAccount);
+            } else {
+                throw new RuntimeException("Not enough funds, refill your balance");
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void addChatMessage(Long twitterAccountId, TwitterChatMessageDto dto) {
+        TwitterAccount account = twitterAccountRepo.findById(twitterAccountId)
+                .orElseThrow(() -> new RuntimeException("Twitter account wish such Id does not exist"));
+        messageRepo.save(toChatMessageEntity(dto.getMessage(), account));
+    }
+
+    @Override
+    @Transactional
+    public void deleteChatMessage(Long messageId) {
+        TwitterChatMessage message = messageRepo.findById(messageId)
+                .orElseThrow(() -> new RuntimeException("Chat message with such Id does not exist"));
+        message.setTwitterAccount(null);
+        messageRepo.delete(message);
+    }
+
+    @Override
+    public PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(String email, TwitterAccountStatus status, int page, int size) {
+        Page<TwitterAccount> accounts = twitterAccountRepo.findByModel_User_EmailAndStatus(email, status, PageRequest.of(page, size));
+        return PageableResponse.<TwitterAccountData>builder()
+                .totalPages(accounts.getTotalPages())
+                .totalElements(accounts.getTotalElements())
+                .elements(filteredTwitterAccountList(accounts.getContent()))
+                .build();
     }
 
     private void updateProxy(Long twitterAccountId, String proxy) throws UnknownHostException {
@@ -189,9 +265,25 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 .csrfToken(dto.getCsrfToken())
                 .authToken(AppConstant.TWITTER_TOKEN)
                 .cookie(toCookie(csrf, auth))
-                .payedTo(now.plusDays(30))
+                .payedTo(now.plusDays(1))
                 .username(parseTwitterUsername(dto.getUsername()))
                 .status(TwitterAccountStatus.DISABLED)
+                .build();
+    }
+
+    private List<TwitterAccountData> filteredTwitterAccountList(List<TwitterAccount> entities) {
+        return entities.stream().map(this::fromTwitterAccount).collect(Collectors.toList());
+    }
+
+    private TwitterAccountData fromTwitterAccount(TwitterAccount entity){
+        return TwitterAccountData.builder()
+                .paidTo(entity.getPayedTo().toLocalDate().toString())
+                .id(entity.getId())
+                .email(entity.getEmail())
+                .username(entity.getUsername())
+                .model(entity.getModel().getName())
+                .status(entity.getStatus())
+                .proxy(nonNull(entity.getProxy()) ? entity.getProxy().getIp() + ":" + entity.getProxy().getPort() : null)
                 .build();
     }
 
@@ -311,5 +403,35 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
 
     private String toCookie(String csrf, String token) {
         return "auth_token=" + token + "; ct0=" + csrf;
+    }
+
+    private Integer calculateDaysRemaining(LocalDateTime payedTo) {
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isAfter(payedTo)) {
+            return 0;
+        } else {
+            return (int) ChronoUnit.DAYS.between(now, payedTo);
+        }
+    }
+
+    private LocalDateTime setExpirationDate(LocalDateTime rested, Integer month) {
+        switch (month) {
+            case 1 -> {
+                return rested.plusDays(30);
+            }
+            case 2 -> {
+                return rested.plusDays(60);
+            }
+            case 3 -> {
+                return rested.plusDays(90);
+            }
+            case 6 -> {
+                return rested.plusDays(180);
+            }
+            case 12 -> {
+                return rested.plusDays(360);
+            }
+            default -> throw new IllegalStateException("Unexpected value: " + month);
+        }
     }
 }

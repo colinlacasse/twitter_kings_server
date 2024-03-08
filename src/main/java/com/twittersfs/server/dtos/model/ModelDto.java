@@ -8,4 +8,5 @@ import lombok.Data;
 public class ModelDto {
     private Long id;
     private String name;
+    private Integer accounts;
 }

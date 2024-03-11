@@ -117,6 +117,9 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
             String email = dto.getEmail().toLowerCase().trim();
             twitterAccountRepo.updateEmail(twitterAccountId, email);
         }
+        if (nonNull(dto.getPassword())) {
+            twitterAccountRepo.updatePasswordById(twitterAccountId, dto.getPassword());
+        }
         if (nonNull(dto.getAuthToken()) && !nonNull(dto.getCsrfToken())) {
             throw new RuntimeException("Token and Ct0 should be updated together");
         }
@@ -305,6 +308,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 .email(entity.getEmail())
                 .username(entity.getUsername())
                 .model(entity.getModel().getName())
+                .password(entity.getPassword())
                 .groups(entity.getGroups())
                 .friends(entity.getFriends())
                 .messages(entity.getMessagesSent())
@@ -350,30 +354,45 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         if (proxy.contains("@")) {
             String[] proxyParts = proxy.split("@");
 
+            //1
             if (proxyParts.length == 2) {
                 firstPart = proxyParts[0];
                 secondPart = proxyParts[1];
+                log.warn("1");
+                log.warn(firstPart);
+                log.warn(secondPart);
             } else {
                 throw new RuntimeException("Failed to parse proxy, invalid parts count");
             }
         } else {
             String[] proxyParts = proxy.split(":");
-
+            //2
             if (proxyParts.length == 4) {
                 firstPart = proxyParts[0] + ":" + proxyParts[1];
                 secondPart = proxyParts[2] + ":" + proxyParts[3];
+                log.warn("2");
+                log.warn(firstPart);
+                log.warn(secondPart);
             } else {
                 throw new RuntimeException("Failed to parse proxy, invalid parts count");
             }
         }
-
+        //3
         String[] extractResult = extractIPAndPort(firstPart);
+        log.warn("3");
+        log.warn(firstPart);
         String extractIp = extractResult[0];
         String extractPort = extractResult[1];
-
+        log.warn(extractIp);
+        log.warn(extractPort);
+        //4
         if (!extractIp.isEmpty() && !extractPort.isEmpty()) {
             ip = extractIp;
             port = extractPort;
+            log.warn("4");
+            log.warn("IP " + extractIp);
+            log.warn("PORT" + extractPort);
+
             String[] credentials = secondPart.split(":");
             if (credentials.length == 2) {
                 username = credentials[0];
@@ -382,9 +401,14 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 throw new RuntimeException("Failed to find credentials");
             }
         } else {
+
+            //5
             extractResult = extractIPAndPort(secondPart);
             extractIp = extractResult[0];
             extractPort = extractResult[1];
+            log.warn("5");
+            log.warn("ip : " + extractIp);
+            log.warn("port : " + extractPort);
 
             if (!extractIp.isEmpty() && !extractPort.isEmpty()) {
                 ip = extractIp;
@@ -409,6 +433,10 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 }
                 ip = netParts[0];
                 port = netParts[1];
+
+                log.warn("6");
+                log.warn("ip net : " + netParts[0]);
+                log.warn("port net : " + netParts[1]);
 
                 String[] credentials = firstPart.split(":");
                 if (credentials.length == 2) {

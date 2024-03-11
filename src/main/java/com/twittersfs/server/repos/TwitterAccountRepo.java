@@ -23,6 +23,10 @@ public interface TwitterAccountRepo extends JpaRepository<TwitterAccount,Long> {
     void updateMessagesSent(@Param("accountId") Long accountId);
 
     @Modifying
+    @Query("UPDATE TwitterAccount t SET t.password = :newPassword WHERE t.id = :accountId")
+    void updatePasswordById(@Param("accountId") Long accountId,@Param("newPassword") String newPassword);
+
+    @Modifying
     @Query("UPDATE TwitterAccount t SET t.csrfToken = :newCsrfToken WHERE t.id = :accountId")
     void updateCsrfToken(@Param("accountId") Long accountId, @Param("newCsrfToken") String newCsrfToken);
 

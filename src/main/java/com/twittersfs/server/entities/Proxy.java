@@ -20,6 +20,6 @@ public class Proxy {
     private String port;
     private String username;
     private String password;
-    @Enumerated
+    @Enumerated(EnumType.STRING)
     private ProxyType type;
 }

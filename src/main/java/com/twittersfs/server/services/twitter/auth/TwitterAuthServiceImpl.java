@@ -18,6 +18,7 @@ import com.twittersfs.server.services.twitter.auth.models.response.FlowToken;
 import com.twittersfs.server.services.twitter.auth.models.response.Subtask;
 import com.twittersfs.server.services.twitter.auth.models.response.SubtaskId;
 import com.twittersfs.server.services.twitter.auth.models.subtasks.LoginSubtaskPayload;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,7 @@ import static java.util.Objects.nonNull;
 
 @Service
 @Slf4j
-public class TwitterAuthServiceImpl implements TwitterAuthService{
+public class TwitterAuthServiceImpl implements TwitterAuthService {
     private String flowToken;
     private AuthCredential cred;
     private final ELoginSubtasks[] subtasks;
@@ -48,11 +49,22 @@ public class TwitterAuthServiceImpl implements TwitterAuthService{
                 ELoginSubtasks.ACCOUNT_DUPLICATION_CHECK
         };
     }
+
     @Override
-    public void login(TwitterAccount twitterAccount) throws IOException {
+    @Transactional
+    public void login(Long twitterAccountId) throws IOException {
+        TwitterAccount twitterAccount = twitterAccountRepo.findById(twitterAccountId).orElseThrow(() -> new RuntimeException("No Acc"));
+        twitterAccountRepo.updateCookie(twitterAccountId, "null");
         for (int i = 0; i < 5; i++) {
             try {
                 getUserCredential(twitterAccount);
+                TwitterAccount account = twitterAccountRepo.findById(twitterAccountId).orElseThrow(() -> new RuntimeException("No Acc"));
+                String cookies = account.getCookie();
+                if (nonNull(cookies)) {
+                    if (!cookies.equals("null")) {
+                        break;
+                    }
+                }
             } catch (Exception e) {
                 log.error("Error during logging in " + e + " : " + twitterAccount.getUsername());
             }
@@ -76,7 +88,6 @@ public class TwitterAuthServiceImpl implements TwitterAuthService{
                     log.error("Error during handling subtasks at account : " + twitterAccount.getUsername());
                 }
             }
-//            twitterAccount.setAuth(this.cred.getAuthToken());
             twitterAccountRepo.updateCsrfToken(twitterAccount.getId(), this.cred.getCsrfToken());
         } else {
             throw new RuntimeException("Proxy must not be empty");
@@ -166,6 +177,9 @@ public class TwitterAuthServiceImpl implements TwitterAuthService{
         ObjectMapper mapper = new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         String[] setCookieHeaders = response.headers("Set-Cookie").toArray(new String[0]);
+
+        for (String cookie : setCookieHeaders) {
+        }
         String cookies = String.join(";", setCookieHeaders);
         Subtask subtask = mapper.readValue(jsonResponse, Subtask.class);
         if (subtasks[i].equals(ELoginSubtasks.ENTER_USER_IDENTIFIER) &&
@@ -176,8 +190,7 @@ public class TwitterAuthServiceImpl implements TwitterAuthService{
         this.flowToken = subtask.getFlowToken();
 
         if (subtasks[i].equals(ELoginSubtasks.ACCOUNT_DUPLICATION_CHECK)) {
-            account.setCookie(cookies);
-            twitterAccountRepo.save(account);
+            twitterAccountRepo.updateCookie(account.getId(), cookies);
             this.cred = new AuthCredential(setCookieHeaders, null);
         }
     }

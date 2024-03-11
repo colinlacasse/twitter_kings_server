@@ -11,4 +11,5 @@ public class TwitterAccountUpdate {
     private String proxy;
     private String username;
     private String email;
+    private String password;
 }

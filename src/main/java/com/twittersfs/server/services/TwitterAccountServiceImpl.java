@@ -137,6 +137,11 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     }
 
     @Override
+    public void updateSentMessages(Long twitterAccountId) {
+        twitterAccountRepo.updateMessagesSent(twitterAccountId);
+    }
+
+    @Override
     @Transactional
     public void deleteProxyFromTwitterAccount(Long twitterAccountId) {
         TwitterAccount account = twitterAccountRepo.findById(twitterAccountId)
@@ -273,14 +278,13 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         LocalDateTime now = LocalDateTime.now();
         String auth = dto.getAuthToken().replaceAll("\\s", "");
         String csrf = dto.getCsrfToken().replaceAll("\\s", "");
-        String email = dto.getEmail();
-        if (nonNull(dto.getEmail())) {
-            email = dto.getEmail().toLowerCase().trim();
-        }
+        String email = dto.getEmail().toLowerCase().trim();
+
         return TwitterAccount.builder()
                 .proxy(proxy)
                 .model(modelEntity)
                 .email(email)
+                .password(dto.getPassword())
                 .csrfToken(dto.getCsrfToken())
                 .authToken(AppConstant.TWITTER_TOKEN)
                 .cookie(toCookie(csrf, auth))

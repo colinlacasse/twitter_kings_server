@@ -20,6 +20,7 @@ public class TwitterAccount {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private String restId;
     private String authToken;
     @Column(length = 500)
     private String csrfToken;
@@ -27,6 +28,7 @@ public class TwitterAccount {
     private String cookie;
     private String username;
     private String email;
+    private String password;
     private Integer groups;
     private Integer friends;
     private Integer messagesSent;

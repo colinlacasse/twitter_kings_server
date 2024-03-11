@@ -15,6 +15,7 @@ public enum TwitterAccountStatus {
     UNABLE_CONNECT("Unable to connect"),
     UNEXPECTED_ERROR("Unexpected error"),
     SUSPENDED("Suspended"),
+    PROXY_ERROR("Proxy error"),
     COOLDOWN("Cooldown");
     private final String value;
 }

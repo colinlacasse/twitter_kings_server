@@ -18,6 +18,9 @@ public interface TwitterAccountRepo extends JpaRepository<TwitterAccount,Long> {
     Page<TwitterAccount> findByModel_User_EmailAndStatus(String userEmail, TwitterAccountStatus status, Pageable pageable);
     Page<TwitterAccount> findByModel_User_Email(String userEmail, Pageable pageable);
     Page<TwitterAccount> findByModel_Id(Long modelId, Pageable pageable);
+    @Modifying
+    @Query("UPDATE TwitterAccount t SET t.messagesSent = t.messagesSent + 1 WHERE t.id = :accountId")
+    void updateMessagesSent(@Param("accountId") Long accountId);
 
     @Modifying
     @Query("UPDATE TwitterAccount t SET t.csrfToken = :newCsrfToken WHERE t.id = :accountId")

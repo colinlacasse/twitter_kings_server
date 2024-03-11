@@ -16,6 +16,7 @@ public interface TwitterAccountService {
     void createTwitterAccount(String email, Long modelId, TwitterAccountCreate dto) throws UnknownHostException;
     void createTwitterAccountBulk(String email, Long modelId, List<TwitterAccountCreate> dtos);
     void updateTwitterAccountStatus(Long twitterAccountId, TwitterAccountStatus status);
+    void updateSentMessages(Long twitterAccountId);
     void updateTwitterAccount(Long twitterAccountId, TwitterAccountUpdate dto) throws UnknownHostException;
     void deleteTwitterAccount(Long twitterAccountId);
     void deleteProxyFromTwitterAccount(Long twitterAccountId);

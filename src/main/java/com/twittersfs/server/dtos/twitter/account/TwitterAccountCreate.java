@@ -17,5 +17,8 @@ public class TwitterAccountCreate {
     private String username;
     @NotBlank(message = "Message for sfs groups must not be empty")
     private String message;
+    @NotBlank(message = "Twitter account email must not be empty")
     private String email;
+    @NotBlank(message = "Twitter account password must not be empty")
+    private String password;
 }

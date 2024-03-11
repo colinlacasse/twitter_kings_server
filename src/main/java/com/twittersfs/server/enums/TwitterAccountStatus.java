@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum TwitterAccountStatus {
+    ALL("All"),
     STOPPING("Stopping"),
     ACTIVE("Active"),
     DISABLED("Disabled"),

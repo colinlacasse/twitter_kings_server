@@ -1,8 +1,8 @@
 package com.twittersfs.server.services;
 
+import com.twittersfs.server.dtos.model.ModelCreate;
 import com.twittersfs.server.entities.ModelEntity;
 import com.twittersfs.server.entities.UserEntity;
-import com.twittersfs.server.dtos.model.ModelCreate;
 import com.twittersfs.server.repos.ModelRepo;
 import com.twittersfs.server.repos.UserEntityRepo;
 import jakarta.transaction.Transactional;
@@ -15,7 +15,7 @@ public class ModelServiceImpl implements ModelService {
     private final ModelRepo modelRepo;
     private final UserEntityRepo userRepo;
 
-    public ModelServiceImpl(ModelRepo modelRepo, UserEntityRepo userRepo) {
+    public ModelServiceImpl(ModelRepo modelRepo, UserEntityRepo userRepo, TwitterAccountServiceImpl twitterAccountService) {
         this.modelRepo = modelRepo;
         this.userRepo = userRepo;
     }

@@ -4,9 +4,11 @@ import com.twittersfs.server.constants.AppConstant;
 import com.twittersfs.server.dtos.common.PageableResponse;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountData;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountUpdate;
+import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageData;
 import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageDto;
 import com.twittersfs.server.entities.*;
 import com.twittersfs.server.enums.Prices;
+import com.twittersfs.server.enums.ProxyType;
 import com.twittersfs.server.enums.TwitterAccountStatus;
 import com.twittersfs.server.exceptions.user.NotEnoughFunds;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountCreate;
@@ -133,9 +135,10 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     public void updateTwitterAccountStatus(Long twitterAccountId, TwitterAccountStatus status) {
         twitterAccountRepo.updateStatus(twitterAccountId, status);
     }
+
     @Override
     @Transactional
-    public void deleteProxyFromTwitterAccount(Long twitterAccountId){
+    public void deleteProxyFromTwitterAccount(Long twitterAccountId) {
         TwitterAccount account = twitterAccountRepo.findById(twitterAccountId)
                 .orElseThrow(() -> new RuntimeException("Twitter account wish such Id does not exist"));
         Proxy old = account.getProxy();
@@ -209,13 +212,29 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
 
     @Override
     public PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(String email, TwitterAccountStatus status, int page, int size) {
-        Page<TwitterAccount> accounts = twitterAccountRepo.findByModel_User_EmailAndStatus(email, status, PageRequest.of(page, size));
+        Page<TwitterAccount> accounts;
+        if (status.equals(TwitterAccountStatus.ALL)) {
+            accounts = twitterAccountRepo.findByModel_User_Email(email, PageRequest.of(page, size));
+        } else {
+            accounts = twitterAccountRepo.findByModel_User_EmailAndStatus(email, status, PageRequest.of(page, size));
+        }
         return PageableResponse.<TwitterAccountData>builder()
                 .totalPages(accounts.getTotalPages())
                 .totalElements(accounts.getTotalElements())
                 .elements(filteredTwitterAccountList(accounts.getContent()))
                 .build();
     }
+
+    @Override
+    public PageableResponse<TwitterAccountData> getTwitterAccountsByModel(Long modelId, int page, int size) {
+        Page<TwitterAccount> accounts = twitterAccountRepo.findByModel_Id(modelId, PageRequest.of(page, size));
+        return PageableResponse.<TwitterAccountData>builder()
+                .totalPages(accounts.getTotalPages())
+                .totalElements(accounts.getTotalElements())
+                .elements(filteredTwitterAccountList(accounts.getContent()))
+                .build();
+    }
+
 
     private void updateProxy(Long twitterAccountId, String proxy) throws UnknownHostException {
         TwitterAccount account = twitterAccountRepo.findById(twitterAccountId)
@@ -275,15 +294,30 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         return entities.stream().map(this::fromTwitterAccount).collect(Collectors.toList());
     }
 
-    private TwitterAccountData fromTwitterAccount(TwitterAccount entity){
+    private TwitterAccountData fromTwitterAccount(TwitterAccount entity) {
         return TwitterAccountData.builder()
                 .paidTo(entity.getPayedTo().toLocalDate().toString())
                 .id(entity.getId())
                 .email(entity.getEmail())
                 .username(entity.getUsername())
                 .model(entity.getModel().getName())
+                .groups(entity.getGroups())
+                .friends(entity.getFriends())
+                .messages(entity.getMessagesSent())
+                .chatMessages(toChatMessageDataList(entity.getMessages()))
                 .status(entity.getStatus())
                 .proxy(nonNull(entity.getProxy()) ? entity.getProxy().getIp() + ":" + entity.getProxy().getPort() : null)
+                .build();
+    }
+
+    private List<TwitterChatMessageData> toChatMessageDataList(List<TwitterChatMessage> entities) {
+        return entities.stream().map(this::toChatMessageData).collect(Collectors.toList());
+    }
+
+    private TwitterChatMessageData toChatMessageData(TwitterChatMessage entity){
+        return TwitterChatMessageData.builder()
+                .id(entity.getId())
+                .text(entity.getText())
                 .build();
     }
 
@@ -297,13 +331,13 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     private Proxy parseProxy(String proxyStr) throws UnknownHostException {
         String stringWithoutSpaces = proxyStr.replaceAll("\\s", "");
         String proxy = "";
-        String type = "";
+        ProxyType type;
         if (stringWithoutSpaces.contains("http")) {
             proxy = stringWithoutSpaces.replace("http://", "");
-            type = "http";
+            type = ProxyType.HTTP;
         } else {
             proxy = stringWithoutSpaces.replace("socks://", "");
-            type = "socks";
+            type = ProxyType.SOCKS;
         }
 
         String firstPart, secondPart;

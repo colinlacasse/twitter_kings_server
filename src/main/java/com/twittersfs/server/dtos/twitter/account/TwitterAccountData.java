@@ -1,9 +1,12 @@
 package com.twittersfs.server.dtos.twitter.account;
 
+import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageData;
 import com.twittersfs.server.enums.TwitterAccountStatus;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.List;
 
 
 @Getter
@@ -17,4 +20,11 @@ public class TwitterAccountData {
     private String paidTo;
     private String proxy;
     private String email;
+    private String auth;
+    private String ct0;
+    private Integer groups;
+    private List<TwitterChatMessageData> chatMessages;
+    private Integer messages;
+    private Integer friends;
+    private Integer retweets;
 }

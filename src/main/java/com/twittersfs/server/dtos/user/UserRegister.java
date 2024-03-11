@@ -13,7 +13,7 @@ public class UserRegister {
     @Email(message = "Email must have a valid format")
     @UniqueEmail
     private String email;
-    @NotBlank(message = "Password must not be null")
+    @NotBlank(message = "Password field must not be empty")
     @Pattern(regexp = "^(?=.*\\d)(?=.*[a-z])(?=.*[A-Z]).{8,20}$",
             message = "Password must have 8-20 symbols, lowercase, uppercase and symbols")
     private String password;

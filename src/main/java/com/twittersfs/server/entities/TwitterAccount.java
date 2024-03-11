@@ -27,6 +27,10 @@ public class TwitterAccount {
     private String cookie;
     private String username;
     private String email;
+    private Integer groups;
+    private Integer friends;
+    private Integer messagesSent;
+    private Integer retweets;
     @CreatedDate
     private LocalDate registrationDate;
     private LocalDateTime payedTo;

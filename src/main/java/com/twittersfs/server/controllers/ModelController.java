@@ -1,6 +1,8 @@
 package com.twittersfs.server.controllers;
 
 import com.twittersfs.server.dtos.model.ModelCreate;
+import com.twittersfs.server.dtos.model.ModelData;
+import com.twittersfs.server.dtos.model.ModelDto;
 import com.twittersfs.server.services.ModelService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;

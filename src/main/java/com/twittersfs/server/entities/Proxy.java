@@ -1,5 +1,6 @@
 package com.twittersfs.server.entities;
 
+import com.twittersfs.server.enums.ProxyType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,5 +20,6 @@ public class Proxy {
     private String port;
     private String username;
     private String password;
-    private String type;
+    @Enumerated
+    private ProxyType type;
 }

@@ -7,15 +7,15 @@ import lombok.Setter;
 @Getter
 @Setter
 public class TwitterAccountCreate {
-    @NotBlank(message = "Auth token must not be null")
+    @NotBlank(message = "Auth token field must not be empty")
     private String authToken;
-    @NotBlank(message = "Ct0 token must not be null")
+    @NotBlank(message = "Ct0 token field must not be empty")
     private String csrfToken;
-    @NotBlank(message = "Proxy must not be null")
+    @NotBlank(message = "Proxy field must not be empty")
     private String proxy;
-    @NotBlank(message = "Twitter account username must not be null")
+    @NotBlank(message = "Twitter account username must not be empty")
     private String username;
-    @NotBlank(message = "Message for sfs groups must not be null")
+    @NotBlank(message = "Message for sfs groups must not be empty")
     private String message;
     private String email;
 }

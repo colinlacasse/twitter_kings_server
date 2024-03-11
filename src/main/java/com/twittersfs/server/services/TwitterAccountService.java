@@ -23,4 +23,5 @@ public interface TwitterAccountService {
     void addChatMessage(Long twitterAccountId, TwitterChatMessageDto dto);
     void deleteChatMessage(Long messageId);
     PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(String email, TwitterAccountStatus status, int page, int size);
+    PageableResponse<TwitterAccountData> getTwitterAccountsByModel(Long modelId, int page, int size);
 }

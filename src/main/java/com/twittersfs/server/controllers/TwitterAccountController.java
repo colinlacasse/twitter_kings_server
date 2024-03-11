@@ -35,6 +35,13 @@ public class TwitterAccountController {
         return twitterAccountService.getFilteredTwitterAccounts(authentication.getPrincipal().toString(), status, page, size);
     }
 
+    @GetMapping("/{modelId}")
+    public PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(@PathVariable Long modelId,
+                                                                           @RequestParam int page,
+                                                                           @RequestParam int size) {
+        return twitterAccountService.getTwitterAccountsByModel(modelId, page, size);
+    }
+
     @PostMapping("/{modelId}")
     public void createTwitterAccount(Authentication authentication,
                                      @PathVariable Long modelId,
@@ -70,12 +77,12 @@ public class TwitterAccountController {
         twitterAccountService.deleteTwitterAccount(twitterAccountId);
     }
 
-    @DeleteMapping("/{twitterAccountId}/proxy")
+    @DeleteMapping("/proxy/{twitterAccountId}")
     public void deleteProxyFromTwitterAccount(@PathVariable Long twitterAccountId) {
         twitterAccountService.deleteProxyFromTwitterAccount(twitterAccountId);
     }
 
-    @DeleteMapping("/{messageId}")
+    @DeleteMapping("/message/{messageId}")
     public void deleteMessageFromTwitterAccount(@PathVariable Long messageId) {
         twitterAccountService.deleteChatMessage(messageId);
     }

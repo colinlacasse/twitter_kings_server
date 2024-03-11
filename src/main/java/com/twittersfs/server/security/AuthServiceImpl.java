@@ -37,7 +37,8 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public JwtResponse login(@NonNull JwtRequest authRequest) {
-        final AuthDto user = userService.getUserAuthDto(authRequest.getEmail());
+        String email = authRequest.getEmail().toLowerCase().trim();
+        final AuthDto user = userService.getUserAuthDto(email);
         if (passwordEncoder.matches(authRequest.getPassword(), user.getPassword())) {
             final String accessToken = jwtProvider.generateAccessToken(user);
             final String refreshToken = jwtProvider.generateRefreshToken(user);

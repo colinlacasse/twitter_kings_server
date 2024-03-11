@@ -16,6 +16,8 @@ import java.util.Optional;
 public interface TwitterAccountRepo extends JpaRepository<TwitterAccount,Long> {
     Optional<TwitterAccount> findByUsername(String username);
     Page<TwitterAccount> findByModel_User_EmailAndStatus(String userEmail, TwitterAccountStatus status, Pageable pageable);
+    Page<TwitterAccount> findByModel_User_Email(String userEmail, Pageable pageable);
+    Page<TwitterAccount> findByModel_Id(Long modelId, Pageable pageable);
 
     @Modifying
     @Query("UPDATE TwitterAccount t SET t.csrfToken = :newCsrfToken WHERE t.id = :accountId")

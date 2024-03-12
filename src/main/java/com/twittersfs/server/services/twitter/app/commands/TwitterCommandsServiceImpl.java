@@ -23,6 +23,7 @@ import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,13 +34,15 @@ import static java.util.Objects.nonNull;
 public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     private final TwitterApiRequests twitterApiRequests;
     private final TwitterAccountService twitterAccountService;
+    Set<Long> workingAccounts = ConcurrentHashMap.newKeySet();
 
     public TwitterCommandsServiceImpl(TwitterApiRequests twitterApiRequests, TwitterAccountService twitterAccountService) {
         this.twitterApiRequests = twitterApiRequests;
         this.twitterAccountService = twitterAccountService;
     }
 
-    public void execute(Long twitterAccountId) throws InterruptedException {
+    public void execute(Long twitterAccountId) {
+        checkIfAccountRunning(twitterAccountId);
         TwitterAccount twitterAccount = twitterAccountService.get(twitterAccountId);
         XUserData userData = getUserByScreenName(twitterAccount);
         if (!nonNull(twitterAccount.getRestId())) {
@@ -47,30 +50,54 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                 twitterAccountService.updateRestId(twitterAccountId, userData.getData().getUser().getResult().getRestId());
             }
         }
-        //status
-
         TwitterAccountStatus status = twitterAccount.getStatus();
         while (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
             if (isNotExpired(twitterAccount)) {
-                XUserGroup groups = getUserConversations(twitterAccount);
-                twitterAccount = twitterAccountService.get(twitterAccountId);
-                int friendsBefore = twitterAccount.getFriends();
-                int messagesBefore = twitterAccount.getMessagesSent();
-                int retweetsBefore = twitterAccount.getRetweets();
-                updateGroupsValue(groups, twitterAccountId);
-                for (Conversation conversation : groups.getInboxInitialState().getConversations().values()) {
-                    if (nonNull(conversation.getName())) {
-                        processGroup(twitterAccount, conversation.getConversationID(), groupPostToRetweetParser(conversation.getName()));
+                try {
+                    XUserGroup groups = getUserConversations(twitterAccount);
+                    twitterAccount = twitterAccountService.get(twitterAccountId);
+                    int friendsBefore = twitterAccount.getFriends();
+                    int messagesBefore = twitterAccount.getMessagesSent();
+                    int retweetsBefore = twitterAccount.getRetweets();
+                    updateGroupsValue(groups, twitterAccountId);
+                    for (Conversation conversation : groups.getInboxInitialState().getConversations().values()) {
+                        if (nonNull(conversation.getName())) {
+                            try {
+                                processGroup(twitterAccount, conversation.getConversationID(), groupPostToRetweetParser(conversation.getName()));
+                            } catch (InterruptedException e) {
+                                twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    }
+                    userData = getUserByScreenName(twitterAccount);
+                    twitterAccount = twitterAccountService.get(twitterAccountId);
+                    updateAccountStatistics(twitterAccountId, userData, twitterAccount, friendsBefore, messagesBefore, retweetsBefore);
+                    status = twitterAccount.getStatus();
+                    if (status.equals(TwitterAccountStatus.ACTIVE)) {
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.COOLDOWN);
+                    }
+                    Thread.sleep(10000);
+                    if (status.equals(TwitterAccountStatus.COOLDOWN)) {
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
+                    }
+                } catch (Exception e) {
+                    status = twitterAccountService.get(twitterAccountId).getStatus();
+                    if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
+                        workingAccounts.remove(twitterAccount.getId());
+                        return;
                     }
                 }
-                userData = getUserByScreenName(twitterAccount);
-                twitterAccount = twitterAccountService.get(twitterAccountId);
-                updateAccountStatistics(twitterAccountId, userData, twitterAccount, friendsBefore, messagesBefore, retweetsBefore);
-                status = twitterAccount.getStatus();
+
             } else {
                 twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNPAID);
                 status = twitterAccountService.get(twitterAccountId).getStatus();
             }
+        }
+        workingAccounts.remove(twitterAccount.getId());
+        if (status.equals(TwitterAccountStatus.STOPPING)) {
+            twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.DISABLED);
         }
     }
 
@@ -351,6 +378,16 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
             int messagesDifference = messagesAfter - messagesBefore;
             int retweetDifference = retweetsAfter - retweetsBefore;
             twitterAccountService.updateStatisticDifference(twitterAccountId, friendsDifference, messagesDifference, retweetDifference, friendsAfter, retweetsAfter);
+        }
+    }
+
+    private void checkIfAccountRunning(Long accountId) {
+        if (!workingAccounts.isEmpty()) {
+            for (Long id : workingAccounts) {
+                if (Objects.equals(id, accountId)) {
+                    throw new RuntimeException("Account is already working");
+                }
+            }
         }
     }
 }

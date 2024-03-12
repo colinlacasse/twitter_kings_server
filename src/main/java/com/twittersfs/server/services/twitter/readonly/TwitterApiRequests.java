@@ -5,6 +5,7 @@ import com.twittersfs.server.dtos.twitter.media.XUserMedia;
 import com.twittersfs.server.dtos.twitter.message.XGroupMessage;
 import com.twittersfs.server.dtos.twitter.user.XUserData;
 import com.twittersfs.server.entities.Proxy;
+import com.twittersfs.server.entities.TwitterAccount;
 
 import java.io.IOException;
 
@@ -17,4 +18,7 @@ public interface TwitterApiRequests {
     void writeMessage(String twitterAccountName,String message, String groupId, Proxy proxy, String cookies, String auth, String csrf) throws IOException;
     void retweet(String twitterAccountName, String postId, Proxy proxy, String cookies, String auth, String csrf) throws IOException;
     void deleteRetweet(String twitterAccountName, String postId, Proxy proxy, String cookies, String auth, String csrf) throws IOException;
+    void addGroupToAccount(TwitterAccount donor, String toUpdateRestId, String groupId) throws IOException;
+    void subscribeOnAccount(TwitterAccount twitterAccount, String restId) throws IOException;
+    void setDmSettings(TwitterAccount twitterAccount) throws IOException;
 }

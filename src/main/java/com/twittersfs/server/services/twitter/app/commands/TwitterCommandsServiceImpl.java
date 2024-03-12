@@ -9,6 +9,8 @@ import com.twittersfs.server.dtos.twitter.message.XGroupMessage;
 import com.twittersfs.server.dtos.twitter.user.XUserData;
 import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.entities.TwitterChatMessage;
+import com.twittersfs.server.entities.UserEntity;
+import com.twittersfs.server.enums.SubscriptionType;
 import com.twittersfs.server.enums.TwitterAccountStatus;
 import com.twittersfs.server.exceptions.twitter.*;
 import com.twittersfs.server.services.TwitterAccountService;
@@ -41,6 +43,30 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
         this.twitterAccountService = twitterAccountService;
     }
 
+    public void addGroups(TwitterAccount twitterAccount){
+        List<TwitterAccount> all = twitterAccountService.findAll();
+        List<TwitterAccount> donors = new ArrayList<>();
+        for(TwitterAccount account : all){
+            if(account.getModel().getUser().getSubscriptionType().equals(SubscriptionType.DONOR)){
+                donors.add(account);
+            }
+        }
+    }
+
+    @Override
+    public void stop(Long twitterAccountId) {
+        if (!workingAccounts.isEmpty()) {
+            for (Long id : workingAccounts) {
+                if (Objects.equals(id, twitterAccountId)) {
+                    twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.STOPPING);
+                }
+            }
+        } else {
+            twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.DISABLED);
+        }
+    }
+
+    @Override
     public void execute(Long twitterAccountId) {
         checkIfAccountRunning(twitterAccountId);
         TwitterAccount twitterAccount = twitterAccountService.get(twitterAccountId);
@@ -77,11 +103,18 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                     if (status.equals(TwitterAccountStatus.ACTIVE)) {
                         twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.COOLDOWN);
                     }
-                    Thread.sleep(10000);
+                    if (twitterAccount.getGroups() <= 7) {
+                        Thread.sleep(generateRandomNumber(1200000, 1500000));
+                    } else if (twitterAccount.getGroups() <= 15) {
+                        Thread.sleep(generateRandomNumber(1500000, 1800000));
+                    } else {
+                        Thread.sleep(generateRandomNumber(2100000, 2400000));
+                    }
                     if (status.equals(TwitterAccountStatus.COOLDOWN)) {
                         twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
                     }
                 } catch (Exception e) {
+                    log.error("Unexpected error : " + e);
                     status = twitterAccountService.get(twitterAccountId).getStatus();
                     if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
                         twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
@@ -342,7 +375,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
         LocalDateTime validTo = twitterAccount.getPayedTo();
         LocalDateTime now = LocalDateTime.now();
         long result = now.until(validTo, ChronoUnit.DAYS);
-        return result >= 1;
+        return result >= 0;
     }
 
     private Integer groupPostToRetweetParser(String name) {
@@ -359,22 +392,23 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     }
 
     private void updateGroupsValue(XUserGroup groups, Long twitterAccountId) {
-        int groupCounter = nonNull(groups.getInboxInitialState().getConversations().values())
-                ? (int) groups.getInboxInitialState().getConversations().values().stream()
-                .filter(conversation -> nonNull(conversation.getName()))
-                .peek(conversation -> {
-                })
-                .count()
-                : 0;
-        twitterAccountService.updateGroups(twitterAccountId, groupCounter);
+        int counter = 0;
+        for (Conversation conversation : groups.getInboxInitialState().getConversations().values()) {
+            if (nonNull(conversation.getName())) {
+                counter++;
+            }
+        }
+        twitterAccountService.updateGroups(twitterAccountId, counter);
     }
 
     private void updateAccountStatistics(Long twitterAccountId, XUserData userData, TwitterAccount twitterAccount, int friendsBefore, int messagesBefore, int retweetsBefore) {
         if (nonNull(userData)) {
             int friendsAfter = userData.getData().getUser().getResult().getLegacy().getFriendsCount();
-            int retweetsAfter = userData.getData().getUser().getResult().getLegacy().getRetweetCount();
+            log.info("Friends after : " + friendsAfter);
+            int retweetsAfter = userData.getData().getUser().getResult().getLegacy().getStatusesCount();
             int messagesAfter = twitterAccount.getMessagesSent();
             int friendsDifference = friendsAfter - friendsBefore;
+            log.info("Friends dif : " + friendsDifference);
             int messagesDifference = messagesAfter - messagesBefore;
             int retweetDifference = retweetsAfter - retweetsBefore;
             twitterAccountService.updateStatisticDifference(twitterAccountId, friendsDifference, messagesDifference, retweetDifference, friendsAfter, retweetsAfter);

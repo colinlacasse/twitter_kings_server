@@ -27,6 +27,10 @@ public interface TwitterAccountService {
     void updateRestId(Long twitterAccountId, String restId);
     void updateGroups(Long twitterAccountId, Integer groups);
     void updateStatisticDifference(Long twitterAccountId, Integer friendDifference, Integer messageDifference, Integer retweetDifference, Integer friends, Integer retweets);
+    void setMessagesDifferenceViewed(Long twitterAccountId);
+    void setRetweetsDifferenceViewed(Long twitterAccountId);
+    void setFriendsDifferenceViewed(Long twitterAccountId);
+    List<TwitterAccount> findAll();
     PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(String email, TwitterAccountStatus status, int page, int size);
     PageableResponse<TwitterAccountData> getTwitterAccountsByModel(Long modelId, int page, int size);
 }

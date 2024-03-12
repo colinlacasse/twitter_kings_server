@@ -28,4 +28,7 @@ public class TwitterAccountData {
     private Integer messages;
     private Integer friends;
     private Integer retweets;
+    private Integer friendsDifference;
+    private Integer retweetsDifference;
+    private Integer messagesDifference;
 }

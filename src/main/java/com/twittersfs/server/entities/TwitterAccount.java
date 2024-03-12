@@ -1,5 +1,6 @@
 package com.twittersfs.server.entities;
 
+import com.twittersfs.server.enums.GroupStatus;
 import com.twittersfs.server.enums.TwitterAccountStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -36,6 +37,8 @@ public class TwitterAccount {
     private Integer friendsDifference;
     private Integer messagesDifference;
     private Integer retweetsDifference;
+    @Enumerated(EnumType.STRING)
+    private GroupStatus groupStatus;
     @CreatedDate
     private LocalDate registrationDate;
     private LocalDateTime payedTo;

@@ -12,7 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Service
-public class TwitterAppServiceImpl implements TwitterAppService{
+public class TwitterAppServiceImpl implements TwitterAppService {
     ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor();
     private final TwitterCommandsService commandsService;
     private final TwitterAccountService twitterAccountService;
@@ -24,6 +24,7 @@ public class TwitterAppServiceImpl implements TwitterAppService{
 
     @Override
     public void run(Long twitterAccountId) {
+        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
         Runnable start = () -> {
             try {
                 commandsService.execute(twitterAccountId);
@@ -36,7 +37,11 @@ public class TwitterAppServiceImpl implements TwitterAppService{
 
     @Override
     public void stop(Long twitterAccountId) {
-        //
-        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.STOPPING);
+        commandsService.stop(twitterAccountId);
+    }
+
+    @Override
+    public void addGroups(Long twitterAccountId) {
+
     }
 }

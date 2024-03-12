@@ -16,7 +16,6 @@ public class TwitterChatGroup {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String groupId;
-    private Integer postToTweet;
     @ManyToOne
     private TwitterAccount twitterAccount;
 }

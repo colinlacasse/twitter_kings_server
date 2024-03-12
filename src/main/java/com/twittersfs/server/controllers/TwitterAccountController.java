@@ -91,4 +91,18 @@ public class TwitterAccountController {
     public void updateSubscription(@PathVariable Long twitterAccountId, @Valid @NotNull(message = "Request body must not be null") @RequestBody AccountSubscription month) {
         twitterAccountService.updateSubscription(twitterAccountId, month.getMonth());
     }
+
+    @PostMapping("/{twitterAccountId}/reset-friends")
+    public void resetFriends(@PathVariable Long twitterAccountId) {
+        twitterAccountService.setFriendsDifferenceViewed(twitterAccountId);
+    }
+    @PostMapping("/{twitterAccountId}/reset-messages")
+    public void resetMessages(@PathVariable Long twitterAccountId) {
+        twitterAccountService.setMessagesDifferenceViewed(twitterAccountId);
+    }
+
+    @PostMapping("/{twitterAccountId}/reset-retweets")
+    public void resetRetweets(@PathVariable Long twitterAccountId) {
+        twitterAccountService.setRetweetsDifferenceViewed(twitterAccountId);
+    }
 }

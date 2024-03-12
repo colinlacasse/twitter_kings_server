@@ -6,12 +6,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.twittersfs.server.dtos.twitter.error.XApiError;
 import com.twittersfs.server.dtos.twitter.group.XUserGroup;
 import com.twittersfs.server.dtos.twitter.media.XUserMedia;
+import com.twittersfs.server.dtos.twitter.message.MessageWrite;
 import com.twittersfs.server.dtos.twitter.message.XGroupMessage;
+import com.twittersfs.server.dtos.twitter.retweet.DeleteRetweet;
 import com.twittersfs.server.dtos.twitter.user.XUserData;
 import com.twittersfs.server.entities.Proxy;
+import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.exceptions.twitter.*;
 import com.twittersfs.server.okhttp3.OkHttp3ClientService;
-import com.twittersfs.server.services.twitter.readonly.TwitterApiRequests;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
@@ -20,7 +23,10 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static java.util.Objects.nonNull;
+
 @Service
+@Slf4j
 public class TwitterApiRequestsImpl implements TwitterApiRequests {
     private final OkHttp3ClientService okHttp3ClientService;
 
@@ -102,15 +108,15 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
         ObjectMapper mapper = new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("groupId", groupId);
-        payload.put("message", message);
-        buildRequestBody(twitterAccountName, cookies, auth, csrf, client, mapper, url, payload);
+        MessageWrite payload = new MessageWrite(groupId, message);
+        RequestBody requestBody = RequestBody.create(
+                MediaType.parse("application/json"), mapper.writeValueAsString(payload));
+        buildRequestBody(twitterAccountName, cookies, auth, csrf, client, mapper, url, requestBody);
     }
 
     @Override
     public void retweet(String twitterAccountName, String postId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
-        String url = "https://twitter.com/i/api/1.1/dm/new2.json?ext=mediaColor%2CaltText%2CmediaStats%2ChighlightedLabel%2ChasNftAvatar%2CvoiceInfo%2CbirdwatchPivot%2CsuperFollowMetadata%2CunmentionInfo%2CeditControl&include_ext_alt_text=true&include_ext_limited_action_results=true&include_reply_count=1&tweet_mode=extended&include_ext_views=true&include_groups=true&include_inbox_timelines=true&include_ext_media_color=true&supports_reactions=true";
+        String url = "https://twitter.com/i/api/graphql/ojPdsZsimiJrUGLR1sjUtA/CreateRetweet";
         OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
         ObjectMapper mapper = new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -133,15 +139,73 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL);
         String url = "https://twitter.com/i/api/graphql/iQtK4dl5hBmXewYZuEOKVw/DeleteRetweet";
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("tweet_id", postId);
-        payload.put("dark_request", false);
-        buildRequestBody(twitterAccountName, cookies, auth, csrf, client, mapper, url, payload);
-    }
-
-    private void buildRequestBody(String twitterAccountName, String cookies, String auth, String csrf, OkHttpClient client, ObjectMapper mapper, String url, Map<String, Object> payload) throws IOException {
+        DeleteRetweet payload = new DeleteRetweet(postId);
         RequestBody requestBody = RequestBody.create(
                 MediaType.parse("application/json"), mapper.writeValueAsString(payload));
+        buildRequestBody(twitterAccountName, cookies, auth, csrf, client, mapper, url, requestBody);
+    }
+
+    @Override
+    public void addGroupToAccount(TwitterAccount donor, String toUpdateRestId, String groupId) throws IOException {
+        if (nonNull(toUpdateRestId)) {
+            OkHttpClient client = okHttp3ClientService.createClientWithProxy(donor.getProxy());
+            ObjectMapper mapper = new ObjectMapper()
+                    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                    .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+            String json = "{\"variables\":{\"addedParticipants\":[\"" + toUpdateRestId + "\"],\"conversationId\":\"" + groupId + "\"},\"queryId\":\"oBwyQ0_xVbAQ8FAyG0pCRA\"}";
+            MediaType mediaType = MediaType.parse("application/json");
+            RequestBody requestBody = RequestBody.create(mediaType, json);
+            String url = "https://twitter.com/i/api/graphql/oBwyQ0_xVbAQ8FAyG0pCRA/AddParticipantsMutation";
+            buildRequestBody(donor.getUsername(), donor.getCookie(), donor.getAuthToken(), donor.getCsrfToken(), client, mapper, url, requestBody);
+        }
+    }
+
+    @Override
+    public void subscribeOnAccount(TwitterAccount twitterAccount, String subscribeOnRestId) throws IOException {
+        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
+        String url = "https://twitter.com/i/api/1.1/friendships/create.json";
+        ObjectMapper mapper = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        RequestBody requestBody = new FormBody.Builder()
+                .add("include_profile_interstitial_type", "1")
+                .add("include_blocking", "1")
+                .add("include_blocked_by", "1")
+                .add("include_followed_by", "1")
+                .add("include_want_retweets", "1")
+                .add("include_mute_edge", "1")
+                .add("include_can_dm", "1")
+                .add("include_can_media_tag", "1")
+                .add("include_ext_has_nft_avatar", "1")
+                .add("include_ext_is_blue_verified", "1")
+                .add("include_ext_verified_type", "1")
+                .add("include_ext_profile_image_shape", "1")
+                .add("skip_status", "1")
+                .add("user_id", subscribeOnRestId)
+                .build();
+        buildRequestBody(twitterAccount.getUsername(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken(), client, mapper, url, requestBody);
+    }
+
+    @Override
+    public void setDmSettings(TwitterAccount twitterAccount) throws IOException {
+        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
+        ObjectMapper mapper = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        String url = "https://api.twitter.com/1.1/account/settings.json";
+        RequestBody requestBody = new FormBody.Builder()
+                .add("include_mention_filter", "true")
+                .add("include_nsfw_user_flag", "true")
+                .add("include_nsfw_admin_flag", "true")
+                .add("include_ranked_timeline", "true")
+                .add("include_alt_text_compose", "true")
+                .add("allow_dms_from", "all")
+                .add("dm_quality_filter", "disabled")
+                .build();
+        buildRequestBody(twitterAccount.getUsername(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken(), client, mapper, url, requestBody);
+    }
+
+    private void buildRequestBody(String twitterAccountName, String cookies, String auth, String csrf, OkHttpClient client, ObjectMapper mapper, String url, RequestBody requestBody) throws IOException {
         try (Response response = client.newCall(buildRequest(requestBody, url, cookies, auth, csrf)).execute()) {
             String jsonResponse = response.body().string();
             if (!response.isSuccessful()) {

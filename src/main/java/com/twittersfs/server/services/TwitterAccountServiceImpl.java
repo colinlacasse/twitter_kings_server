@@ -5,15 +5,17 @@ import com.twittersfs.server.dtos.common.PageableResponse;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountCreate;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountData;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountUpdate;
+import com.twittersfs.server.dtos.twitter.group.Conversation;
+import com.twittersfs.server.dtos.twitter.group.XUserGroup;
 import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageData;
 import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageDto;
+import com.twittersfs.server.dtos.twitter.user.XUserData;
 import com.twittersfs.server.entities.*;
-import com.twittersfs.server.enums.Prices;
-import com.twittersfs.server.enums.ProxyType;
-import com.twittersfs.server.enums.TwitterAccountStatus;
+import com.twittersfs.server.enums.*;
 import com.twittersfs.server.exceptions.user.NotEnoughFunds;
 import com.twittersfs.server.repos.*;
-import jakarta.persistence.criteria.CriteriaBuilder;
+import com.twittersfs.server.services.twitter.app.commands.AppGroupService;
+import com.twittersfs.server.services.twitter.readonly.TwitterApiRequests;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -40,13 +42,17 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     private final ProxyRepo proxyRepo;
     private final ModelRepo modelRepo;
     private final UserEntityRepo userRepo;
+    private final AppGroupService groupService;
+    private final TwitterApiRequests apiRequests;
 
-    public TwitterAccountServiceImpl(TwitterAccountRepo twitterAccountRepo, TwitterChatMessageRepo messageRepo, ProxyRepo proxyRepo, ModelRepo modelRepo, UserEntityRepo userRepo) {
+    public TwitterAccountServiceImpl(TwitterAccountRepo twitterAccountRepo, TwitterChatMessageRepo messageRepo, ProxyRepo proxyRepo, ModelRepo modelRepo, UserEntityRepo userRepo, AppGroupService groupService, TwitterApiRequests apiRequests) {
         this.twitterAccountRepo = twitterAccountRepo;
         this.messageRepo = messageRepo;
         this.proxyRepo = proxyRepo;
         this.modelRepo = modelRepo;
         this.userRepo = userRepo;
+        this.groupService = groupService;
+        this.apiRequests = apiRequests;
     }
 
     @Override
@@ -82,10 +88,28 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
             Float balance = user.getBalance();
             user.setBalance(balance - Prices.X_DAY_SUBSCRIPTION.getValue());
             userRepo.save(user);
+            try {
+                XUserData userData = apiRequests.getUserByScreenName(account.getUsername(), account.getProxy(), account.getCookie(), account.getAuthToken(), account.getCsrfToken());
+                String restId = userData.getData().getUser().getResult().getRestId();
+                updateRestId(account.getId(), restId);
+                if (user.getSubscriptionType().equals(SubscriptionType.DONOR)) {
+                    groupService.addGroupsToADonorAccount(account, restId);
+                }
+                XUserGroup userGroup = apiRequests.getUserConversations(account.getUsername(), restId, account.getProxy(), account.getCookie(), account.getAuthToken(), account.getCsrfToken());
+                int counter = 0;
+                for (Conversation conversation : userGroup.getInboxInitialState().getConversations().values()) {
+                    if (nonNull(conversation.getName())) {
+                        counter++;
+                    }
+                }
+                updateGroups(account.getId(), counter);
+            } catch (Exception e) {
+                log.error("Exception while getting user data during creating twitter account : " + account.getUsername());
+            }
+
         } else {
             throw new NotEnoughFunds("Not enough funds, top up your balance");
         }
-
     }
 
     @Override
@@ -238,7 +262,27 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
 
     @Override
     public void updateStatisticDifference(Long twitterAccountId, Integer friendDifference, Integer messageDifference, Integer retweetDifference, Integer friends, Integer retweets) {
-        twitterAccountRepo.updateAccountFields(twitterAccountId,friends,retweets,friendDifference,retweetDifference);
+        twitterAccountRepo.updateAccountFields(twitterAccountId, friends, retweets, friendDifference, retweetDifference, messageDifference);
+    }
+
+    @Override
+    public void setMessagesDifferenceViewed(Long twitterAccountId) {
+        twitterAccountRepo.resetMessagesDifference(twitterAccountId);
+    }
+
+    @Override
+    public void setRetweetsDifferenceViewed(Long twitterAccountId) {
+        twitterAccountRepo.resetRetweetsDifference(twitterAccountId);
+    }
+
+    @Override
+    public void setFriendsDifferenceViewed(Long twitterAccountId) {
+        twitterAccountRepo.resetFriendsDifference(twitterAccountId);
+    }
+
+    @Override
+    public List<TwitterAccount> findAll() {
+        return twitterAccountRepo.findAll();
     }
 
     @Override
@@ -305,7 +349,11 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         String auth = dto.getAuthToken().replaceAll("\\s", "");
         String csrf = dto.getCsrfToken().replaceAll("\\s", "");
         String email = dto.getEmail().toLowerCase().trim();
-
+        SubscriptionType type = modelEntity.getUser().getSubscriptionType();
+        GroupStatus groupStatus = GroupStatus.USED;
+        if (type.equals(SubscriptionType.BASIC)) {
+            groupStatus = GroupStatus.UNUSED;
+        }
         return TwitterAccount.builder()
                 .proxy(proxy)
                 .model(modelEntity)
@@ -315,6 +363,14 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 .authToken(AppConstant.TWITTER_TOKEN)
                 .cookie(toCookie(csrf, auth))
                 .payedTo(now.plusDays(1))
+                .groupStatus(groupStatus)
+                .friendsDifference(0)
+                .messagesDifference(0)
+                .groups(0)
+                .retweetsDifference(0)
+                .friends(0)
+                .messagesSent(0)
+                .retweets(0)
                 .username(parseTwitterUsername(dto.getUsername()))
                 .status(TwitterAccountStatus.DISABLED)
                 .build();
@@ -336,6 +392,10 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 .friends(entity.getFriends())
                 .messages(entity.getMessagesSent())
                 .chatMessages(toChatMessageDataList(entity.getMessages()))
+                .friendsDifference(entity.getFriendsDifference())
+                .retweetsDifference(entity.getRetweetsDifference())
+                .messagesDifference(entity.getMessagesDifference())
+                .retweets(entity.getRetweets())
                 .status(entity.getStatus())
                 .proxy(nonNull(entity.getProxy()) ? entity.getProxy().getIp() + ":" + entity.getProxy().getPort() : null)
                 .build();
@@ -393,7 +453,6 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 throw new RuntimeException("Failed to parse proxy, invalid parts count");
             }
         }
-
         String[] extractResult = extractIPAndPort(firstPart);
         String extractIp = extractResult[0];
         String extractPort = extractResult[1];
@@ -409,7 +468,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 throw new RuntimeException("Failed to find credentials");
             }
         } else {
-
+            log.info("2nd" + firstPart);
             extractResult = extractIPAndPort(secondPart);
             extractIp = extractResult[0];
             extractPort = extractResult[1];
@@ -458,12 +517,12 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     }
 
     public static String[] extractIPAndPort(String input) {
-        Pattern pattern = Pattern.compile("(?:@)?([\\d.]+):(\\d+)");
+        Pattern pattern = Pattern.compile("@?([\\d.]+):(\\d+)");
         Matcher matcher = pattern.matcher(input);
         if (matcher.find() && matcher.groupCount() == 2) {
             return new String[]{matcher.group(1), matcher.group(2)};
         } else {
-            throw new RuntimeException("Unable to extract IP and port");
+            return new String[]{"", ""};
         }
     }
 

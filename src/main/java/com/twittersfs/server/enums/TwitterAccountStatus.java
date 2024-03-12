@@ -12,10 +12,12 @@ public enum TwitterAccountStatus {
     DISABLED("Disabled"),
     LOCKED("Locked"),
     INVALID_COOKIES("Invalid cookies"),
+    UPDATED_COOKIES("Updated cookies"),
     UNABLE_CONNECT("Unable to connect"),
     UNEXPECTED_ERROR("Unexpected error"),
     SUSPENDED("Suspended"),
     PROXY_ERROR("Proxy error"),
+    UNPAID("Update account subscription"),
     COOLDOWN("Cooldown");
     private final String value;
 }

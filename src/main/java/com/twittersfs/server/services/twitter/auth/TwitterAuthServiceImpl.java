@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.twittersfs.server.dtos.twitter.error.XApiError;
 import com.twittersfs.server.entities.Proxy;
 import com.twittersfs.server.entities.TwitterAccount;
+import com.twittersfs.server.enums.TwitterAccountStatus;
 import com.twittersfs.server.okhttp3.OkHttp3ClientService;
 import com.twittersfs.server.repos.TwitterAccountRepo;
 import com.twittersfs.server.services.twitter.auth.enums.ELoginSubtasks;
@@ -52,16 +53,16 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
 
     @Override
     @Transactional
-    public void login(Long twitterAccountId) throws IOException {
-        TwitterAccount twitterAccount = twitterAccountRepo.findById(twitterAccountId).orElseThrow(() -> new RuntimeException("No Acc"));
-        twitterAccountRepo.updateCookie(twitterAccountId, "null");
+    public void login(TwitterAccount twitterAccount) throws IOException {
+        twitterAccountRepo.updateCookie(twitterAccount.getId(), "null");
         for (int i = 0; i < 5; i++) {
             try {
                 getUserCredential(twitterAccount);
-                TwitterAccount account = twitterAccountRepo.findById(twitterAccountId).orElseThrow(() -> new RuntimeException("No Acc"));
+                TwitterAccount account = twitterAccountRepo.findById(twitterAccount.getId()).orElseThrow(() -> new RuntimeException("No Acc"));
                 String cookies = account.getCookie();
                 if (nonNull(cookies)) {
                     if (!cookies.equals("null")) {
+                        twitterAccountRepo.updateStatus(twitterAccount.getId(), TwitterAccountStatus.UPDATED_COOKIES);
                         break;
                     }
                 }

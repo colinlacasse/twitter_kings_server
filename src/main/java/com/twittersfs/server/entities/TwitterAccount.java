@@ -33,6 +33,9 @@ public class TwitterAccount {
     private Integer friends;
     private Integer messagesSent;
     private Integer retweets;
+    private Integer friendsDifference;
+    private Integer messagesDifference;
+    private Integer retweetsDifference;
     @CreatedDate
     private LocalDate registrationDate;
     private LocalDateTime payedTo;

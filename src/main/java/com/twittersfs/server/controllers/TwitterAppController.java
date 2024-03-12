@@ -25,8 +25,8 @@ public class TwitterAppController {
     public void stop(@PathVariable Long twitterAccountId) {
     }
 
-    @PostMapping("/{twitterAccountId}/relogin")
-    public void relogin(@PathVariable Long twitterAccountId) throws IOException {
-        authService.login(twitterAccountId);
-    }
+//    @PostMapping("/{twitterAccountId}/relogin")
+//    public void relogin(@PathVariable Long twitterAccountId) throws IOException {
+//        authService.login(twitterAccountId);
+//    }
 }

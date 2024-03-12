@@ -2,6 +2,7 @@ package com.twittersfs.server.services;
 
 import com.twittersfs.server.constants.AppConstant;
 import com.twittersfs.server.dtos.common.PageableResponse;
+import com.twittersfs.server.dtos.twitter.account.TwitterAccountCreate;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountData;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountUpdate;
 import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageData;
@@ -11,8 +12,8 @@ import com.twittersfs.server.enums.Prices;
 import com.twittersfs.server.enums.ProxyType;
 import com.twittersfs.server.enums.TwitterAccountStatus;
 import com.twittersfs.server.exceptions.user.NotEnoughFunds;
-import com.twittersfs.server.dtos.twitter.account.TwitterAccountCreate;
 import com.twittersfs.server.repos.*;
+import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -25,6 +26,8 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.nonNull;
@@ -219,6 +222,26 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     }
 
     @Override
+    public TwitterAccount get(Long twitterAccountId) {
+        return twitterAccountRepo.findById(twitterAccountId).orElseThrow(() -> new RuntimeException("Twitter account with such Id does not exist"));
+    }
+
+    @Override
+    public void updateRestId(Long twitterAccountId, String restId) {
+        twitterAccountRepo.updateRestId(twitterAccountId, restId);
+    }
+
+    @Override
+    public void updateGroups(Long twitterAccountId, Integer groups) {
+        twitterAccountRepo.updateGroups(twitterAccountId, groups);
+    }
+
+    @Override
+    public void updateStatisticDifference(Long twitterAccountId, Integer friendDifference, Integer messageDifference, Integer retweetDifference, Integer friends, Integer retweets) {
+        twitterAccountRepo.updateAccountFields(twitterAccountId,friends,retweets,friendDifference,retweetDifference);
+    }
+
+    @Override
     public PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(String email, TwitterAccountStatus status, int page, int size) {
         Page<TwitterAccount> accounts;
         if (status.equals(TwitterAccountStatus.ALL)) {
@@ -322,7 +345,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         return entities.stream().map(this::toChatMessageData).collect(Collectors.toList());
     }
 
-    private TwitterChatMessageData toChatMessageData(TwitterChatMessage entity){
+    private TwitterChatMessageData toChatMessageData(TwitterChatMessage entity) {
         return TwitterChatMessageData.builder()
                 .id(entity.getId())
                 .text(entity.getText())
@@ -354,44 +377,29 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         if (proxy.contains("@")) {
             String[] proxyParts = proxy.split("@");
 
-            //1
             if (proxyParts.length == 2) {
                 firstPart = proxyParts[0];
                 secondPart = proxyParts[1];
-                log.warn("1");
-                log.warn(firstPart);
-                log.warn(secondPart);
             } else {
                 throw new RuntimeException("Failed to parse proxy, invalid parts count");
             }
         } else {
             String[] proxyParts = proxy.split(":");
-            //2
+
             if (proxyParts.length == 4) {
                 firstPart = proxyParts[0] + ":" + proxyParts[1];
                 secondPart = proxyParts[2] + ":" + proxyParts[3];
-                log.warn("2");
-                log.warn(firstPart);
-                log.warn(secondPart);
             } else {
                 throw new RuntimeException("Failed to parse proxy, invalid parts count");
             }
         }
-        //3
+
         String[] extractResult = extractIPAndPort(firstPart);
-        log.warn("3");
-        log.warn(firstPart);
         String extractIp = extractResult[0];
         String extractPort = extractResult[1];
-        log.warn(extractIp);
-        log.warn(extractPort);
-        //4
         if (!extractIp.isEmpty() && !extractPort.isEmpty()) {
             ip = extractIp;
             port = extractPort;
-            log.warn("4");
-            log.warn("IP " + extractIp);
-            log.warn("PORT" + extractPort);
 
             String[] credentials = secondPart.split(":");
             if (credentials.length == 2) {
@@ -402,13 +410,9 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
             }
         } else {
 
-            //5
             extractResult = extractIPAndPort(secondPart);
             extractIp = extractResult[0];
             extractPort = extractResult[1];
-            log.warn("5");
-            log.warn("ip : " + extractIp);
-            log.warn("port : " + extractPort);
 
             if (!extractIp.isEmpty() && !extractPort.isEmpty()) {
                 ip = extractIp;
@@ -434,10 +438,6 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 ip = netParts[0];
                 port = netParts[1];
 
-                log.warn("6");
-                log.warn("ip net : " + netParts[0]);
-                log.warn("port net : " + netParts[1]);
-
                 String[] credentials = firstPart.split(":");
                 if (credentials.length == 2) {
                     username = credentials[0];
@@ -457,9 +457,14 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 .build();
     }
 
-    private String[] extractIPAndPort(String input) {
-        String[] parts = input.split(":");
-        return (parts.length == 2) ? parts : null;
+    public static String[] extractIPAndPort(String input) {
+        Pattern pattern = Pattern.compile("(?:@)?([\\d.]+):(\\d+)");
+        Matcher matcher = pattern.matcher(input);
+        if (matcher.find() && matcher.groupCount() == 2) {
+            return new String[]{matcher.group(1), matcher.group(2)};
+        } else {
+            throw new RuntimeException("Unable to extract IP and port");
+        }
     }
 
     private String parseTwitterUsername(String message) {

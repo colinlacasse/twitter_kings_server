@@ -4,6 +4,7 @@ import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.enums.TwitterAccountStatus;
 
 
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -33,6 +34,28 @@ public interface TwitterAccountRepo extends JpaRepository<TwitterAccount,Long> {
     @Modifying
     @Query("UPDATE TwitterAccount t SET t.cookie = :newCookie WHERE t.id = :accountId")
     void updateCookie(@Param("accountId") Long accountId, @Param("newCookie") String newCookie);
+    @Transactional
+    @Modifying
+    @Query("UPDATE TwitterAccount " +
+            "SET friends = :friends, " +
+            "retweets = :retweets, " +
+            "friendsDifference = :friendsDifference, " +
+            "retweetsDifference = :retweetsDifference " +
+            "WHERE id = :accountId")
+    void updateAccountFields(@Param("accountId") Long accountId,
+                             @Param("friends") Integer friends,
+                             @Param("retweets") Integer retweets,
+                             @Param("friendsDifference") Integer friendsDifference,
+                             @Param("retweetsDifference") Integer retweetsDifference);
+    @Transactional
+    @Modifying
+    @Query("UPDATE TwitterAccount t SET t.groups = :newGroups WHERE t.id = :accountId")
+    void updateGroups(@Param("accountId") Long accountId, @Param("newGroups") Integer newGroups);
+
+    @Transactional
+    @Modifying
+    @Query("UPDATE TwitterAccount t SET t.restId = :newRestId WHERE t.id = :accountId")
+    void updateRestId(@Param("accountId") Long accountId, @Param("newRestId") String newRestId);
 
     @Modifying
     @Query("UPDATE TwitterAccount t SET t.status = :newStatus WHERE t.id = :accountId")

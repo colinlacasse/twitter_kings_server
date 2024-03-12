@@ -23,6 +23,10 @@ public interface TwitterAccountService {
     void updateSubscription(Long twitterAccountId, Integer month);
     void addChatMessage(Long twitterAccountId, TwitterChatMessageDto dto);
     void deleteChatMessage(Long messageId);
+    TwitterAccount get(Long twitterAccountId);
+    void updateRestId(Long twitterAccountId, String restId);
+    void updateGroups(Long twitterAccountId, Integer groups);
+    void updateStatisticDifference(Long twitterAccountId, Integer friendDifference, Integer messageDifference, Integer retweetDifference, Integer friends, Integer retweets);
     PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(String email, TwitterAccountStatus status, int page, int size);
     PageableResponse<TwitterAccountData> getTwitterAccountsByModel(Long modelId, int page, int size);
 }

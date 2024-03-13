@@ -161,7 +161,7 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     }
 
     @Override
-    public void subscribeOnAccount(TwitterAccount twitterAccount, String subscribeOnRestId) throws IOException {
+    public void subscribe(TwitterAccount twitterAccount, String subscribeOnRestId) throws IOException {
         OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
         String url = "https://twitter.com/i/api/1.1/friendships/create.json";
         ObjectMapper mapper = new ObjectMapper()
@@ -182,6 +182,32 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
                 .add("include_ext_profile_image_shape", "1")
                 .add("skip_status", "1")
                 .add("user_id", subscribeOnRestId)
+                .build();
+        buildRequestBody(twitterAccount.getUsername(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken(), client, mapper, url, requestBody);
+    }
+
+    @Override
+    public void unsubscribe(TwitterAccount twitterAccount, String unsubscribeOnRestId) throws IOException {
+        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
+        String url = "https://twitter.com/i/api/1.1/friendships/destroy.json";
+        ObjectMapper mapper = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        RequestBody requestBody = new FormBody.Builder()
+                .add("include_profile_interstitial_type", "1")
+                .add("include_blocking", "1")
+                .add("include_blocked_by", "1")
+                .add("include_followed_by", "1")
+                .add("include_want_retweets", "1")
+                .add("include_mute_edge", "1")
+                .add("include_can_dm", "1")
+                .add("include_can_media_tag", "1")
+                .add("include_ext_has_nft_avatar", "1")
+                .add("include_ext_is_blue_verified", "1")
+                .add("include_ext_verified_type", "1")
+                .add("include_ext_profile_image_shape", "1")
+                .add("skip_status", "1")
+                .add("user_id", unsubscribeOnRestId)
                 .build();
         buildRequestBody(twitterAccount.getUsername(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken(), client, mapper, url, requestBody);
     }

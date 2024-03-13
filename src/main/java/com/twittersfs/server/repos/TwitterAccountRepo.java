@@ -13,6 +13,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface TwitterAccountRepo extends JpaRepository<TwitterAccount,Long> {
@@ -20,6 +21,7 @@ public interface TwitterAccountRepo extends JpaRepository<TwitterAccount,Long> {
     Page<TwitterAccount> findByModel_User_EmailAndStatus(String userEmail, TwitterAccountStatus status, Pageable pageable);
     Page<TwitterAccount> findByModel_User_Email(String userEmail, Pageable pageable);
     Page<TwitterAccount> findByModel_Id(Long modelId, Pageable pageable);
+    List<TwitterAccount> findByModel_Id(Long modelId);
     @Transactional
     @Modifying
     @Query("UPDATE TwitterAccount t SET t.messagesSent = t.messagesSent + 1 WHERE t.id = :accountId")

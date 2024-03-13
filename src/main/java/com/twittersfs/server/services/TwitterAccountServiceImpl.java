@@ -22,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.LocalDateTime;
@@ -94,14 +95,13 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 updateRestId(account.getId(), restId);
                 if (user.getSubscriptionType().equals(SubscriptionType.DONOR)) {
                     groupService.addGroupsToADonorAccount(account, restId);
-                }
-                XUserGroup userGroup = apiRequests.getUserConversations(account.getUsername(), restId, account.getProxy(), account.getCookie(), account.getAuthToken(), account.getCsrfToken());
-                int counter = 0;
-                for (Conversation conversation : userGroup.getInboxInitialState().getConversations().values()) {
-                    if (nonNull(conversation.getName())) {
-                        counter++;
+                } else if (user.getSubscriptionType().equals(SubscriptionType.AGENCY)) {
+                    int groups = countGroupsAmount(account, restId);
+                    if (groups < 10) {
+                        groupService.addGroupsToAgencyAccount(account, restId);
                     }
                 }
+                int counter = countGroupsAmount(account, restId);
                 updateGroups(account.getId(), counter);
             } catch (Exception e) {
                 log.error("Exception while getting user data during creating twitter account : " + account.getUsername());
@@ -192,9 +192,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         Float newBalance = daysRemaining * Prices.X_DAY_SUBSCRIPTION.getValue();
         UserEntity user = account.getModel().getUser();
         user.setBalance(user.getBalance() + newBalance);
-        account.setModel(null);
         userRepo.save(user);
-        twitterAccountRepo.save(account);
         twitterAccountRepo.delete(account);
     }
 
@@ -468,7 +466,6 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 throw new RuntimeException("Failed to find credentials");
             }
         } else {
-            log.info("2nd" + firstPart);
             extractResult = extractIPAndPort(secondPart);
             extractIp = extractResult[0];
             extractPort = extractResult[1];
@@ -563,5 +560,20 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
             }
             default -> throw new IllegalStateException("Unexpected value: " + month);
         }
+    }
+
+    private int countGroupsAmount(TwitterAccount account, String restId) {
+        int counter = 0;
+        try {
+            XUserGroup userGroup = apiRequests.getUserConversations(account.getUsername(), restId, account.getProxy(), account.getCookie(), account.getAuthToken(), account.getCsrfToken());
+            for (Conversation conversation : userGroup.getInboxInitialState().getConversations().values()) {
+                if (nonNull(conversation.getName())) {
+                    counter++;
+                }
+            }
+        } catch (Exception e) {
+            log.error("Exception while counting groups amount on account : " + e);
+        }
+        return counter;
     }
 }

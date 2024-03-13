@@ -1,11 +1,12 @@
 package com.twittersfs.server;
 
 import com.twittersfs.server.entities.TwitterAccount;
-import com.twittersfs.server.entities.UserEntity;
+import com.twittersfs.server.enums.GroupStatus;
 import com.twittersfs.server.enums.SubscriptionType;
 import com.twittersfs.server.enums.TwitterAccountStatus;
 import com.twittersfs.server.repos.TwitterAccountRepo;
 import com.twittersfs.server.services.twitter.app.TwitterAppService;
+import com.twittersfs.server.services.twitter.app.commands.AppGroupService;
 import com.twittersfs.server.services.twitter.auth.TwitterAuthService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,20 +21,21 @@ public class ScheduleUpdates {
     private final TwitterAccountRepo twitterAccountRepo;
     private final TwitterAppService twitterAppService;
     private final TwitterAuthService authService;
+    private final AppGroupService appGroupService;
 
-    public ScheduleUpdates(TwitterAccountRepo twitterAccountRepo, TwitterAppService twitterAppService, TwitterAuthService authService) {
+    public ScheduleUpdates(TwitterAccountRepo twitterAccountRepo, TwitterAppService twitterAppService, TwitterAuthService authService, AppGroupService appGroupService) {
         this.twitterAccountRepo = twitterAccountRepo;
         this.twitterAppService = twitterAppService;
         this.authService = authService;
+        this.appGroupService = appGroupService;
     }
 
-    @Scheduled(fixedRate = 10800000)
+    @Scheduled(fixedRate = 14400000)
     public void updateCookiesAndRestart() {
         List<TwitterAccount> all = twitterAccountRepo.findAll();
         List<TwitterAccount> needUpdate = new ArrayList<>();
         for (TwitterAccount account : all) {
-            UserEntity user = account.getModel().getUser();
-            if (account.getStatus().equals(TwitterAccountStatus.INVALID_COOKIES) && user.getSubscriptionType().equals(SubscriptionType.PREMIUM)) {
+            if (account.getStatus().equals(TwitterAccountStatus.INVALID_COOKIES)) {
                 needUpdate.add(account);
             }
         }
@@ -50,5 +52,19 @@ public class ScheduleUpdates {
                 log.error("Error while restarting : " + e);
             }
         }
+    }
+
+    @Scheduled(fixedRate = 86400000)
+    public void updatedGroups() {
+        List<TwitterAccount> all = twitterAccountRepo.findAll();
+        for (TwitterAccount account : all) {
+            SubscriptionType subscriptionType = account.getModel().getUser().getSubscriptionType();
+            if (subscriptionType.equals(SubscriptionType.AGENCY)) {
+                if (account.getGroups() < 10) {
+                    appGroupService.addGroupsToAgencyAccount(account, account.getRestId());
+                }
+            }
+        }
+
     }
 }

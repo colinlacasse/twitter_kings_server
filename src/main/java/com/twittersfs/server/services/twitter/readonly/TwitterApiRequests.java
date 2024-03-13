@@ -19,6 +19,7 @@ public interface TwitterApiRequests {
     void retweet(String twitterAccountName, String postId, Proxy proxy, String cookies, String auth, String csrf) throws IOException;
     void deleteRetweet(String twitterAccountName, String postId, Proxy proxy, String cookies, String auth, String csrf) throws IOException;
     void addGroupToAccount(TwitterAccount donor, String toUpdateRestId, String groupId) throws IOException;
-    void subscribeOnAccount(TwitterAccount twitterAccount, String restId) throws IOException;
+    void subscribe(TwitterAccount twitterAccount, String restId) throws IOException;
+    void unsubscribe(TwitterAccount twitterAccount, String unsubscribeOnRestId) throws IOException;
     void setDmSettings(TwitterAccount twitterAccount) throws IOException;
 }

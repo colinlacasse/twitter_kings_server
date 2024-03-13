@@ -4,4 +4,5 @@ import com.twittersfs.server.entities.TwitterAccount;
 
 public interface AppGroupService {
     void addGroupsToADonorAccount(TwitterAccount toUpdate, String restId);
+    void addGroupsToAgencyAccount(TwitterAccount receiver, String receiverRestId);
 }

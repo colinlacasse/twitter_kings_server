@@ -17,6 +17,8 @@ public class UserData {
     private Integer disabled;
     private Integer locked;
     private Integer invalid;
+    private Integer stopping;
+    private Integer updated;
     private Integer suspended;
     private Integer error;
     private List<ModelDto> models;

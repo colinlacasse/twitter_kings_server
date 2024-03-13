@@ -66,6 +66,8 @@ public class UserServiceImpl implements UserService {
         int invalid = 0;
         int suspended = 0;
         int error = 0;
+        int stopping = 0;
+        int updated = 0;
         List<ModelEntity> models = entity.getModelEntities();
         List<TwitterAccount> twitterAccounts = models.stream()
                 .flatMap(modelEntity -> modelEntity.getTwitterAccounts().stream()).toList();
@@ -85,6 +87,10 @@ public class UserServiceImpl implements UserService {
                 suspended++;
             } else if (twitterAccount.getStatus().equals(TwitterAccountStatus.UNEXPECTED_ERROR)) {
                 error++;
+            }else if (twitterAccount.getStatus().equals(TwitterAccountStatus.STOPPING)) {
+                stopping++;
+            }else if (twitterAccount.getStatus().equals(TwitterAccountStatus.UPDATED_COOKIES)) {
+                updated++;
             }
         }
         return UserData.builder()
@@ -95,6 +101,8 @@ public class UserServiceImpl implements UserService {
                 .error(error)
                 .invalid(invalid)
                 .locked(locked)
+                .stopping(stopping)
+                .updated(updated)
                 .subscription(entity.getSubscriptionType())
                 .balance(entity.getBalance())
                 .models(toTwitterAccountDatasFromEntities(entity.getModelEntities()))
@@ -116,7 +124,7 @@ public class UserServiceImpl implements UserService {
     private UserEntity fromUserRegisterDto(UserRegister dto) {
         String email = dto.getEmail().toLowerCase().trim();
         return UserEntity.builder()
-                .balance(1F)
+                .balance(0F)
                 .email(email)
                 .password(passwordEncoder.encode(dto.getPassword()))
                 .role(Role.USER)

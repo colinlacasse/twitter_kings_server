@@ -392,13 +392,15 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     }
 
     private void updateGroupsValue(XUserGroup groups, Long twitterAccountId) {
-        int counter = 0;
-        for (Conversation conversation : groups.getInboxInitialState().getConversations().values()) {
-            if (nonNull(conversation.getName())) {
-                counter++;
+        if(nonNull(groups)){
+            int counter = 0;
+            for (Conversation conversation : groups.getInboxInitialState().getConversations().values()) {
+                if (nonNull(conversation.getName())) {
+                    counter++;
+                }
             }
+            twitterAccountService.updateGroups(twitterAccountId, counter);
         }
-        twitterAccountService.updateGroups(twitterAccountId, counter);
     }
 
     private void updateAccountStatistics(Long twitterAccountId, XUserData userData, TwitterAccount twitterAccount, int friendsBefore, int messagesBefore, int retweetsBefore) {

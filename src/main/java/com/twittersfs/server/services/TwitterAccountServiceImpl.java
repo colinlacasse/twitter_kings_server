@@ -420,12 +420,12 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     private Proxy parseProxy(String proxyStr) throws UnknownHostException {
         String stringWithoutSpaces = proxyStr.replaceAll("\\s", "");
         String proxy = "";
-        ProxyType type;
+        ProxyType type = ProxyType.HTTP;
         if (stringWithoutSpaces.contains("http")) {
             proxy = stringWithoutSpaces.replace("http://", "");
             type = ProxyType.HTTP;
-        } else {
-            proxy = stringWithoutSpaces.replace("socks://", "");
+        } else if(stringWithoutSpaces.contains("socks5")) {
+            proxy = stringWithoutSpaces.replace("socks5://", "");
             type = ProxyType.SOCKS;
         }
 

@@ -97,7 +97,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                     groupService.addGroupsToADonorAccount(account, restId);
                 } else if (user.getSubscriptionType().equals(SubscriptionType.AGENCY)) {
                     int groups = countGroupsAmount(account, restId);
-                    if (groups < 10) {
+                    if (groups < 5) {
                         groupService.addGroupsToAgencyAccount(account, restId);
                     }
                 }
@@ -289,7 +289,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         if (status.equals(TwitterAccountStatus.ALL)) {
             accounts = twitterAccountRepo.findByModel_User_Email(email, PageRequest.of(page, size));
         } else {
-            accounts = twitterAccountRepo.findByModel_User_EmailAndStatus(email, status, PageRequest.of(page, size));
+            accounts = twitterAccountRepo.findByStatusAndModelUserEmail(status, email, PageRequest.of(page, size));
         }
         return PageableResponse.<TwitterAccountData>builder()
                 .totalPages(accounts.getTotalPages())
@@ -424,7 +424,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         if (stringWithoutSpaces.contains("http")) {
             proxy = stringWithoutSpaces.replace("http://", "");
             type = ProxyType.HTTP;
-        } else if(stringWithoutSpaces.contains("socks5")) {
+        } else if (stringWithoutSpaces.contains("socks5")) {
             proxy = stringWithoutSpaces.replace("socks5://", "");
             type = ProxyType.SOCKS;
         }

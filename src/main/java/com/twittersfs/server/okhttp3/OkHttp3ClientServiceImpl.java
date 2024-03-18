@@ -32,7 +32,7 @@ public class OkHttp3ClientServiceImpl implements OkHttp3ClientService {
         InetSocketAddress proxyAddr = new InetSocketAddress(proxy.getIp(),
                 Integer.parseInt(proxy.getPort()));
         java.net.Proxy proxy1 = new java.net.Proxy(java.net.Proxy.Type.SOCKS, proxyAddr);
-        JavaAuthenticator proxyAuthenticator = new JavaAuthenticator(proxy.getIp(), proxy.getPassword());
+        JavaAuthenticator proxyAuthenticator = new JavaAuthenticator(proxy.getUsername(), proxy.getPassword());
         java.net.Authenticator.setDefault(proxyAuthenticator);
         builder.proxy(proxy1);
     }

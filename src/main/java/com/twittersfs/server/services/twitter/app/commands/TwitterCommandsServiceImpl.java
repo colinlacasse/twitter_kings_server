@@ -9,16 +9,14 @@ import com.twittersfs.server.dtos.twitter.message.XGroupMessage;
 import com.twittersfs.server.dtos.twitter.user.XUserData;
 import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.entities.TwitterChatMessage;
-import com.twittersfs.server.entities.UserEntity;
-import com.twittersfs.server.enums.SubscriptionType;
 import com.twittersfs.server.enums.TwitterAccountStatus;
 import com.twittersfs.server.exceptions.twitter.*;
 import com.twittersfs.server.services.TwitterAccountService;
+import com.twittersfs.server.services.twitter.auth.TwitterAuthService;
 import com.twittersfs.server.services.twitter.readonly.TwitterApiRequests;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.net.ProtocolException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -36,21 +34,13 @@ import static java.util.Objects.nonNull;
 public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     private final TwitterApiRequests twitterApiRequests;
     private final TwitterAccountService twitterAccountService;
+    private final TwitterAuthService twitterAuthService;
     Set<Long> workingAccounts = ConcurrentHashMap.newKeySet();
 
-    public TwitterCommandsServiceImpl(TwitterApiRequests twitterApiRequests, TwitterAccountService twitterAccountService) {
+    public TwitterCommandsServiceImpl(TwitterApiRequests twitterApiRequests, TwitterAccountService twitterAccountService, TwitterAuthService twitterAuthService) {
         this.twitterApiRequests = twitterApiRequests;
         this.twitterAccountService = twitterAccountService;
-    }
-
-    public void addGroups(TwitterAccount twitterAccount){
-        List<TwitterAccount> all = twitterAccountService.findAll();
-        List<TwitterAccount> donors = new ArrayList<>();
-        for(TwitterAccount account : all){
-            if(account.getModel().getUser().getSubscriptionType().equals(SubscriptionType.DONOR)){
-                donors.add(account);
-            }
-        }
+        this.twitterAuthService = twitterAuthService;
     }
 
     @Override
@@ -66,66 +56,95 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
         }
     }
 
+    public void exec(Long twitterAccountId){
+
+    }
+
     @Override
     public void execute(Long twitterAccountId) {
         checkIfAccountRunning(twitterAccountId);
+        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
         TwitterAccount twitterAccount = twitterAccountService.get(twitterAccountId);
+        if (!nonNull(twitterAccount.getCsrfToken())) {
+            twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.INVALID_COOKIES);
+            workingAccounts.remove(twitterAccount.getId());
+            return;
+        }
+
         XUserData userData = getUserByScreenName(twitterAccount);
         if (!nonNull(twitterAccount.getRestId())) {
             if (nonNull(userData)) {
                 twitterAccountService.updateRestId(twitterAccountId, userData.getData().getUser().getResult().getRestId());
             }
         }
+
         TwitterAccountStatus status = twitterAccount.getStatus();
-        while (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
+        int tryCounter = 0;
+        while (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN) || status.equals(TwitterAccountStatus.UPDATED_COOKIES)) {
             if (isNotExpired(twitterAccount)) {
-                try {
-                    XUserGroup groups = getUserConversations(twitterAccount);
-                    twitterAccount = twitterAccountService.get(twitterAccountId);
-                    int friendsBefore = twitterAccount.getFriends();
-                    int messagesBefore = twitterAccount.getMessagesSent();
-                    int retweetsBefore = twitterAccount.getRetweets();
-                    updateGroupsValue(groups, twitterAccountId);
-                    for (Conversation conversation : groups.getInboxInitialState().getConversations().values()) {
-                        if (nonNull(conversation.getName())) {
-                            try {
-                                processGroup(twitterAccount, conversation.getConversationID(), groupPostToRetweetParser(conversation.getName()));
-                            } catch (InterruptedException e) {
+                    try {
+                        if (status.equals(TwitterAccountStatus.COOLDOWN) || status.equals(TwitterAccountStatus.UPDATED_COOKIES)) {
+                            twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
+                        }
+                        twitterAccount = twitterAccountService.get(twitterAccountId);
+                        XUserGroup groups = getUserConversations(twitterAccount);
+                        int friendsBefore = twitterAccount.getFriends();
+                        int messagesBefore = twitterAccount.getMessagesSent();
+                        int retweetsBefore = twitterAccount.getRetweets();
+                        if (nonNull(groups)) {
+                            int processGroupCounter = 0;
+                            updateGroupsValue(groups, twitterAccountId);
+                            for (Conversation conversation : groups.getInboxInitialState().getConversations().values()) {
+                                if (nonNull(conversation.getName())) {
+                                    try {
+                                        tryCounter = 0;
+                                        processGroup(twitterAccount, conversation.getConversationID(), groupPostToRetweetParser(conversation.getName()));
+                                        processGroupCounter++;
+                                    } catch (InterruptedException e) {
+                                        log.error("Interrupted Exception in Executed method , account : " + twitterAccount.getUsername());
+                                        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
+                                        workingAccounts.remove(twitterAccount.getId());
+                                        return;
+                                    }
+                                }
+                            }
+                            userData = getUserByScreenName(twitterAccount);
+                            twitterAccount = twitterAccountService.get(twitterAccountId);
+                            updateAccountStatistics(twitterAccountId, userData, twitterAccount, friendsBefore, messagesBefore, retweetsBefore);
+                            status = twitterAccount.getStatus();
+                            if (processGroupCounter <= 5) {
+                                Thread.sleep(generateRandomNumber(540000, 600000));
+                            } else if (processGroupCounter <= 10) {
+                                Thread.sleep(generateRandomNumber(1080000, 1320000));
+                            } else if (processGroupCounter <= 15) {
+                                Thread.sleep(generateRandomNumber(1740000, 1980000));
+                            } else {
+                                Thread.sleep(2100000);
+                            }
+                        } else {
+                            tryCounter++;
+                            Thread.sleep(60000);
+                            if (tryCounter > 10) {
+                                log.warn("Null Groups in execution method : " + twitterAccount.getUsername());
                                 twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
-                                throw new RuntimeException(e);
+                                workingAccounts.remove(twitterAccount.getId());
+                                return;
                             }
                         }
+                    } catch (Exception e) {
+                        log.error("Unexpected error in execution method : " + e + " " + twitterAccount.getUsername());
+                        status = twitterAccountService.get(twitterAccountId).getStatus();
+                        if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
+                            twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
+                            workingAccounts.remove(twitterAccount.getId());
+                            return;
+                        }
                     }
-                    userData = getUserByScreenName(twitterAccount);
-                    twitterAccount = twitterAccountService.get(twitterAccountId);
-                    updateAccountStatistics(twitterAccountId, userData, twitterAccount, friendsBefore, messagesBefore, retweetsBefore);
-                    status = twitterAccount.getStatus();
-                    if (status.equals(TwitterAccountStatus.ACTIVE)) {
-                        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.COOLDOWN);
-                    }
-                    if (twitterAccount.getGroups() <= 7) {
-                        Thread.sleep(generateRandomNumber(1200000, 1500000));
-                    } else if (twitterAccount.getGroups() <= 15) {
-                        Thread.sleep(generateRandomNumber(1500000, 1800000));
-                    } else {
-                        Thread.sleep(generateRandomNumber(2100000, 2400000));
-                    }
-                    if (status.equals(TwitterAccountStatus.COOLDOWN)) {
-                        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
-                    }
-                } catch (Exception e) {
-                    log.error("Unexpected error : " + e);
-                    status = twitterAccountService.get(twitterAccountId).getStatus();
-                    if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
-                        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
-                        workingAccounts.remove(twitterAccount.getId());
-                        return;
-                    }
-                }
 
             } else {
                 twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNPAID);
-                status = twitterAccountService.get(twitterAccountId).getStatus();
+                workingAccounts.remove(twitterAccount.getId());
+                return;
             }
         }
         workingAccounts.remove(twitterAccount.getId());
@@ -140,7 +159,11 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
             List<Entry> filteredEntries = filterEntries(groupMessages.getConversationTimeline().getEntries(), twitterAccount.getRestId(), postToRetweet);
             if (!filteredEntries.isEmpty()) {
                 writeMessage(twitterAccount, groupId);
-                filteredEntries.forEach(entry -> retweetUserMedia(entry.getMessage().getMessageData().getSenderId(), twitterAccount));
+                try {
+                    filteredEntries.forEach(entry -> retweetUserMedia(entry.getMessage().getMessageData().getSenderId(), twitterAccount));
+                } catch (NullPointerException e) {
+                    log.error("ProcessGroup : nullpointer while retweeting. Account : " + twitterAccount.getUsername());
+                }
             }
         }
     }
@@ -166,7 +189,6 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                 return sortedList.subList(sortedList.size() - postToRetweet, sortedList.size());
             }
         } catch (NullPointerException ignored) {
-
         }
         return Collections.emptyList();
     }
@@ -182,28 +204,38 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                         if (nonNull(moduleItem.getItem().getItemContent().getTweetResults().getResult().getLegacy())) {
                             Legacy legacy = moduleItem.getItem().getItemContent().getTweetResults().getResult().getLegacy();
                             if (!legacy.isRetweeted()) {
-                                mediaPostId.add(moduleItem.getItem().getItemContent().getTweetResults().getResult().getRestId());
-                                break;
+                                //
+                                if (legacy.getRetweetCount() > 15) {
+                                    mediaPostId.add(moduleItem.getItem().getItemContent().getTweetResults().getResult().getRestId());
+                                    break;
+                                }
                             }
                         }
                     }
                 } else if (nonNull(instruction.getEntry())) {
                     Legacy legacy = instruction.getEntry().getContent().getItemContent().getTweetResults().getResult().getLegacy();
                     if (!legacy.isRetweeted()) {
-                        mediaPostId.add(instruction.getEntry().getContent().getItemContent().getTweetResults().getResult().getRestId());
-                        break;
+                        //
+                        if (legacy.getRetweetCount() > 15) {
+                            mediaPostId.add(instruction.getEntry().getContent().getItemContent().getTweetResults().getResult().getRestId());
+                            break;
+                        }
                     }
                 } else if (nonNull(instruction.getEntries())) {
                     for (TimelineEntry entry : instruction.getEntries()) {
                         Legacy legacy = entry.getContent().getItemContent().getTweetResults().getResult().getLegacy();
                         if (!legacy.isRetweeted()) {
-                            mediaPostId.add(entry.getContent().getItemContent().getTweetResults().getResult().getRestId());
-                            break;
+                            //
+                            if (legacy.getRetweetCount() > 15) {
+                                mediaPostId.add(entry.getContent().getItemContent().getTweetResults().getResult().getRestId());
+                                break;
+                            }
                         }
                     }
                 }
             }
         } catch (NullPointerException ignored) {
+            log.error("RetweetUserMedia nullpointer exception, in account : " + twitterAccount.getUsername());
         }
         if (!mediaPostId.isEmpty()) {
             List<String> mediaPostIdList = new ArrayList<>(mediaPostId);
@@ -216,6 +248,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
             return twitterApiRequests.getUserByScreenName(twitterAccount.getUsername(), twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
         } catch (XAccountAuthException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
+//            twitterAuthService.login(twitterAccount);
         } catch (XAccountLockedException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.LOCKED);
         } catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
@@ -225,6 +258,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
         } catch (XAccountProxyException | ProtocolException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.PROXY_ERROR);
         } catch (Exception e) {
+            log.error("getUserByScreenName error : " + twitterAccount.getUsername());
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.UNEXPECTED_ERROR);
         }
         return null;
@@ -235,6 +269,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
             return twitterApiRequests.getUserConversations(twitterAccount.getUsername(), twitterAccount.getRestId(), twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
         } catch (XAccountAuthException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
+//            twitterAuthService.login(twitterAccount);
         } catch (XAccountLockedException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.LOCKED);
         } catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
@@ -254,6 +289,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
             return twitterApiRequests.getUserMedia(twitterAccount.getUsername(), sederId, twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
         } catch (XAccountAuthException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
+//            twitterAuthService.login(twitterAccount);
         } catch (XAccountLockedException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.LOCKED);
         } catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
@@ -277,6 +313,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                     twitterAccount.getCsrfToken());
         } catch (XAccountAuthException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
+//            twitterAuthService.login(twitterAccount);
         } catch (XAccountLockedException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.LOCKED);
         } catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
@@ -298,6 +335,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
             twitterAccountService.updateSentMessages(twitterAccount.getId());
         } catch (XAccountAuthException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
+//            twitterAuthService.login(twitterAccount);
         } catch (XAccountLockedException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.LOCKED);
         } catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
@@ -319,6 +357,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
             twitterApiRequests.retweet(twitterAccount.getUsername(), postId, twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
         } catch (XAccountAuthException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
+//            twitterAuthService.login(twitterAccount);
         } catch (XAccountLockedException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.LOCKED);
         } catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
@@ -337,6 +376,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
             twitterApiRequests.deleteRetweet(twitterAccount.getUsername(), postId, twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
         } catch (XAccountAuthException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
+//            twitterAuthService.login(twitterAccount);
         } catch (XAccountLockedException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.LOCKED);
         } catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
@@ -392,7 +432,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     }
 
     private void updateGroupsValue(XUserGroup groups, Long twitterAccountId) {
-        if(nonNull(groups)){
+        if (nonNull(groups)) {
             int counter = 0;
             for (Conversation conversation : groups.getInboxInitialState().getConversations().values()) {
                 if (nonNull(conversation.getName())) {
@@ -406,11 +446,11 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     private void updateAccountStatistics(Long twitterAccountId, XUserData userData, TwitterAccount twitterAccount, int friendsBefore, int messagesBefore, int retweetsBefore) {
         if (nonNull(userData)) {
             int friendsAfter = userData.getData().getUser().getResult().getLegacy().getFriendsCount();
-            log.info("Friends after : " + friendsAfter);
+            log.info("Friends after : " + friendsAfter + " account : " + twitterAccount.getUsername());
             int retweetsAfter = userData.getData().getUser().getResult().getLegacy().getStatusesCount();
             int messagesAfter = twitterAccount.getMessagesSent();
             int friendsDifference = friendsAfter - friendsBefore;
-            log.info("Friends dif : " + friendsDifference);
+            log.info("Friends dif : " + friendsDifference + " account : " + twitterAccount.getUsername());
             int messagesDifference = messagesAfter - messagesBefore;
             int retweetDifference = retweetsAfter - retweetsBefore;
             twitterAccountService.updateStatisticDifference(twitterAccountId, friendsDifference, messagesDifference, retweetDifference, friendsAfter, retweetsAfter);

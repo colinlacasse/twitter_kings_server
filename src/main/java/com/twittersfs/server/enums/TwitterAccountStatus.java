@@ -11,6 +11,7 @@ public enum TwitterAccountStatus {
     ACTIVE("Active"),
     DISABLED("Disabled"),
     LOCKED("Locked"),
+    EMPTY_GROUPS("Empty groups"),
     INVALID_COOKIES("Invalid cookies"),
     UPDATED_COOKIES("Updated cookies"),
     UNABLE_CONNECT("Unable to connect"),

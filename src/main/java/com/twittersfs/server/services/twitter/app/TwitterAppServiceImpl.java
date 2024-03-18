@@ -15,16 +15,13 @@ import java.util.concurrent.Executors;
 public class TwitterAppServiceImpl implements TwitterAppService {
     ExecutorService virtualExecutor = Executors.newVirtualThreadPerTaskExecutor();
     private final TwitterCommandsService commandsService;
-    private final TwitterAccountService twitterAccountService;
 
-    public TwitterAppServiceImpl(TwitterCommandsService commandsService, TwitterAccountService twitterAccountService) {
+    public TwitterAppServiceImpl(TwitterCommandsService commandsService) {
         this.commandsService = commandsService;
-        this.twitterAccountService = twitterAccountService;
     }
 
     @Override
     public void run(Long twitterAccountId) {
-        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
         Runnable start = () -> {
             try {
                 commandsService.execute(twitterAccountId);

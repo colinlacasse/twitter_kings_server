@@ -30,29 +30,29 @@ public class ScheduleUpdates {
         this.appGroupService = appGroupService;
     }
 
-    @Scheduled(fixedRate = 14400000)
-    public void updateCookiesAndRestart() {
-        List<TwitterAccount> all = twitterAccountRepo.findAll();
-        List<TwitterAccount> needUpdate = new ArrayList<>();
-        for (TwitterAccount account : all) {
-            if (account.getStatus().equals(TwitterAccountStatus.INVALID_COOKIES)) {
-                needUpdate.add(account);
-            }
-        }
-
-        for (TwitterAccount account : needUpdate) {
-            try {
-                authService.login(account);
-                TwitterAccount updated = twitterAccountRepo.findById(account.getId())
-                        .orElseThrow(() -> new RuntimeException("Twitter account wish such Id does not exist"));
-                if (updated.getStatus().equals(TwitterAccountStatus.UPDATED_COOKIES)) {
-                    twitterAppService.run(updated.getId());
-                }
-            } catch (Exception e) {
-                log.error("Error while restarting : " + e);
-            }
-        }
-    }
+//    @Scheduled(fixedRate = 14400000)
+//    public void updateCookiesAndRestart() {
+//        List<TwitterAccount> all = twitterAccountRepo.findAll();
+//        List<TwitterAccount> needUpdate = new ArrayList<>();
+//        for (TwitterAccount account : all) {
+//            if (account.getStatus().equals(TwitterAccountStatus.INVALID_COOKIES)) {
+//                needUpdate.add(account);
+//            }
+//        }
+//
+//        for (TwitterAccount account : needUpdate) {
+//            try {
+//                authService.login(account);
+//                TwitterAccount updated = twitterAccountRepo.findById(account.getId())
+//                        .orElseThrow(() -> new RuntimeException("Twitter account wish such Id does not exist"));
+//                if (updated.getStatus().equals(TwitterAccountStatus.UPDATED_COOKIES)) {
+//                    twitterAppService.run(updated.getId());
+//                }
+//            } catch (Exception e) {
+//                log.error("Error while restarting : " + e);
+//            }
+//        }
+//    }
 
     @Scheduled(fixedRate = 86400000)
     public void updatedGroups() {

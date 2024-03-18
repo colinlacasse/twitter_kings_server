@@ -18,7 +18,10 @@ import java.util.Optional;
 
 public interface TwitterAccountRepo extends JpaRepository<TwitterAccount,Long> {
     Optional<TwitterAccount> findByUsername(String username);
-    Page<TwitterAccount> findByModel_User_EmailAndStatus(String userEmail, TwitterAccountStatus status, Pageable pageable);
+//    Page<TwitterAccount> findByModel_User_EmailAndStatus(String userEmail, TwitterAccountStatus status, Pageable pageable);
+    Page<TwitterAccount> findByStatusAndModelUserEmail(TwitterAccountStatus status, String userEmail,  Pageable pageable);
+
+
     Page<TwitterAccount> findByModel_User_Email(String userEmail, Pageable pageable);
     Page<TwitterAccount> findByModel_Id(Long modelId, Pageable pageable);
     List<TwitterAccount> findByModel_Id(Long modelId);

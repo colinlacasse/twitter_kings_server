@@ -267,8 +267,6 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
         XApiError err = mapper.readValue(jsonResponse, XApiError.class);
         if (err != null) {
             throwTwitterExceptions(twitterAccountName, err);
-        } else {
-            throw new IOException("Unexpected exception in account : " + twitterAccountName + " " + jsonResponse);
         }
     }
 
@@ -291,6 +289,8 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
             throw new XAccountPermissionException(" " + err.getErrors().get(0).getMessage() + " " + twitterAccountName);
         } else if (err.getErrors().get(0).getCode() == 130) {
             throw new XAccountOverCapacityException(" " + err.getErrors().get(0).getMessage() + " " + twitterAccountName);
+        } else if (err.getErrors().get(0).getCode() == 403) {
+            throw new XAccountAuthException(" " + err.getErrors().get(0).getMessage() + " " + twitterAccountName);
         }
     }
 

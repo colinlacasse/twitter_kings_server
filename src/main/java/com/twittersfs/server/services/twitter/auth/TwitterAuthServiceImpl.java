@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.twittersfs.server.dtos.twitter.error.XApiError;
 import com.twittersfs.server.entities.Proxy;
 import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.enums.TwitterAccountStatus;
@@ -23,12 +22,14 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.annotation.RequestScope;
 
 import java.io.IOException;
 
 import static java.util.Objects.nonNull;
 
 @Service
+//@RequestScope //todo
 @Slf4j
 public class TwitterAuthServiceImpl implements TwitterAuthService {
     private String flowToken;
@@ -53,22 +54,28 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
 
     @Override
     @Transactional
-    public void login(TwitterAccount twitterAccount) throws IOException {
-        twitterAccountRepo.updateCookie(twitterAccount.getId(), "null");
-        for (int i = 0; i < 5; i++) {
+    public void login(TwitterAccount twitterAccount) {
+        log.info("Start relogin method : " + twitterAccount.getUsername());
+//        twitterAccountRepo.updateCookie(twitterAccount.getId(), "null");
+        for (int i = 0; i < 10; i++) {
             try {
+                log.info("Auth Iteration : " + i + " account : " + twitterAccount.getUsername());
                 getUserCredential(twitterAccount);
                 TwitterAccount account = twitterAccountRepo.findById(twitterAccount.getId()).orElseThrow(() -> new RuntimeException("No Acc"));
-                String cookies = account.getCookie();
-                if (nonNull(cookies)) {
-                    if (!cookies.equals("null")) {
-                        twitterAccountRepo.updateStatus(twitterAccount.getId(), TwitterAccountStatus.UPDATED_COOKIES);
-                        break;
-                    }
+                String csrf = account.getCsrfToken();
+                if (nonNull(csrf)) {
+                    twitterAccountRepo.updateStatus(twitterAccount.getId(), TwitterAccountStatus.UPDATED_COOKIES);
+                    break;
                 }
             } catch (Exception e) {
                 log.error("Error during logging in " + e + " : " + twitterAccount.getUsername());
+                twitterAccountRepo.updateStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
             }
+        }
+        TwitterAccount account = twitterAccountRepo.findById(twitterAccount.getId()).orElseThrow(() -> new RuntimeException("No Acc"));
+        if (!nonNull(account.getCookie()) && !nonNull(account.getCsrfToken())) {
+            log.info("Login m status updated " + twitterAccount.getUsername());
+            twitterAccountRepo.updateStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
         }
     }
 
@@ -81,13 +88,9 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
             for (int i = 0; i < subtasks.length; i++) {
                 LoginSubtaskPayload payload = getSubtaskPayload(subtasks[i], flowToken, accCred);
                 OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
-                try {
-                    Response response = executeLoginSubtask(payload, client);
-                    String jsonResponse = response.body().string();
-                    handleLoginSubtaskResponse(response, i, twitterAccount, jsonResponse);
-                } catch (Exception e) {
-                    log.error("Error during handling subtasks at account : " + twitterAccount.getUsername());
-                }
+                Response response = executeLoginSubtask(payload, client);
+                String jsonResponse = response.body().string();
+                handleLoginSubtaskResponse(response, i, twitterAccount, jsonResponse);
             }
             twitterAccountRepo.updateCsrfToken(twitterAccount.getId(), this.cred.getCsrfToken());
         } else {

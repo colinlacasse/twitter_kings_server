@@ -24,7 +24,6 @@ public class LoadDataOnStartUp {
 
     @EventListener(ApplicationReadyEvent.class)
     public void loadData() {
-        log.info("Starting method");
         List<TwitterAccount> accounts = twitterAccountRepo.findAll();
         for (TwitterAccount account : accounts) {
             TwitterAccountStatus status = account.getStatus();

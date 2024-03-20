@@ -3,9 +3,7 @@ package com.twittersfs.server.services.twitter.app.commands;
 import com.twittersfs.server.dtos.twitter.group.Conversation;
 import com.twittersfs.server.dtos.twitter.group.XUserGroup;
 import com.twittersfs.server.dtos.twitter.media.*;
-import com.twittersfs.server.dtos.twitter.message.Entry;
-import com.twittersfs.server.dtos.twitter.message.Message;
-import com.twittersfs.server.dtos.twitter.message.XGroupMessage;
+import com.twittersfs.server.dtos.twitter.message.*;
 import com.twittersfs.server.dtos.twitter.user.XUserData;
 import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.entities.TwitterChatMessage;
@@ -17,6 +15,7 @@ import com.twittersfs.server.services.twitter.readonly.TwitterApiRequests;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.net.ProtocolException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -56,10 +55,6 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
         }
     }
 
-    public void exec(Long twitterAccountId){
-
-    }
-
     @Override
     public void execute(Long twitterAccountId) {
         checkIfAccountRunning(twitterAccountId);
@@ -79,67 +74,72 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
         }
 
         TwitterAccountStatus status = twitterAccount.getStatus();
-        int tryCounter = 0;
         while (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN) || status.equals(TwitterAccountStatus.UPDATED_COOKIES)) {
             if (isNotExpired(twitterAccount)) {
-                    try {
-                        if (status.equals(TwitterAccountStatus.COOLDOWN) || status.equals(TwitterAccountStatus.UPDATED_COOKIES)) {
-                            twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
-                        }
-                        twitterAccount = twitterAccountService.get(twitterAccountId);
-                        XUserGroup groups = getUserConversations(twitterAccount);
-                        int friendsBefore = twitterAccount.getFriends();
-                        int messagesBefore = twitterAccount.getMessagesSent();
-                        int retweetsBefore = twitterAccount.getRetweets();
-                        if (nonNull(groups)) {
-                            int processGroupCounter = 0;
-                            updateGroupsValue(groups, twitterAccountId);
-                            for (Conversation conversation : groups.getInboxInitialState().getConversations().values()) {
-                                if (nonNull(conversation.getName())) {
-                                    try {
-                                        tryCounter = 0;
-                                        processGroup(twitterAccount, conversation.getConversationID(), groupPostToRetweetParser(conversation.getName()));
-                                        processGroupCounter++;
-                                    } catch (InterruptedException e) {
-                                        log.error("Interrupted Exception in Executed method , account : " + twitterAccount.getUsername());
-                                        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
-                                        workingAccounts.remove(twitterAccount.getId());
-                                        return;
+                try {
+                    if (status.equals(TwitterAccountStatus.COOLDOWN)) {
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
+                    }
+                    twitterAccount = twitterAccountService.get(twitterAccountId);
+                    XUserGroup groups = getUserConversations(twitterAccount);
+                    int friendsBefore = twitterAccount.getFriends();
+                    int messagesBefore = twitterAccount.getMessagesSent();
+                    int retweetsBefore = twitterAccount.getRetweets();
+                    if (nonNull(groups)) {
+                        int retweetCounter = 0;
+                        updateGroupsValue(groups, twitterAccountId);
+                        for (Conversation conversation : groups.getInboxInitialState().getConversations().values()) {
+                            if (nonNull(conversation.getName())) {
+                                try {
+                                    retweetCounter = processGroup(twitterAccount, conversation.getConversationID(), groupPostToRetweetParser(conversation.getName()), retweetCounter);
+                                    if (retweetCounter >= 24) {
+                                        break;
                                     }
+                                } catch (InterruptedException e) {
+                                    log.error("Interrupted Exception in Executed method , account : " + twitterAccount.getUsername());
+                                    twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
+                                    workingAccounts.remove(twitterAccount.getId());
+                                    return;
                                 }
                             }
-                            userData = getUserByScreenName(twitterAccount);
-                            twitterAccount = twitterAccountService.get(twitterAccountId);
-                            updateAccountStatistics(twitterAccountId, userData, twitterAccount, friendsBefore, messagesBefore, retweetsBefore);
-                            status = twitterAccount.getStatus();
-                            if (processGroupCounter <= 5) {
-                                Thread.sleep(generateRandomNumber(540000, 600000));
-                            } else if (processGroupCounter <= 10) {
-                                Thread.sleep(generateRandomNumber(1080000, 1320000));
-                            } else if (processGroupCounter <= 15) {
-                                Thread.sleep(generateRandomNumber(1740000, 1980000));
-                            } else {
-                                Thread.sleep(2100000);
-                            }
-                        } else {
-                            tryCounter++;
-                            Thread.sleep(60000);
-                            if (tryCounter > 10) {
-                                log.warn("Null Groups in execution method : " + twitterAccount.getUsername());
-                                twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
-                                workingAccounts.remove(twitterAccount.getId());
-                                return;
-                            }
                         }
-                    } catch (Exception e) {
-                        log.error("Unexpected error in execution method : " + e + " " + twitterAccount.getUsername());
+                        userData = getUserByScreenName(twitterAccount);
+                        twitterAccount = twitterAccountService.get(twitterAccountId);
+                        updateAccountStatistics(twitterAccountId, userData, twitterAccount, friendsBefore, messagesBefore, retweetsBefore);
+                        status = twitterAccount.getStatus();
+                        Thread.sleep(1920000);
+                    } else {
+                        log.error("Null Groups in execution method : " + twitterAccount.getUsername());
                         status = twitterAccountService.get(twitterAccountId).getStatus();
-                        if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
+                        if (!status.equals(TwitterAccountStatus.INVALID_COOKIES) && !status.equals(TwitterAccountStatus.LOCKED)) {
                             twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
-                            workingAccounts.remove(twitterAccount.getId());
-                            return;
                         }
+                        workingAccounts.remove(twitterAccount.getId());
+                        return;
                     }
+                } catch (XAccountAuthException e) {
+                    twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.INVALID_COOKIES);
+                    workingAccounts.remove(twitterAccount.getId());
+                    return;
+                } catch (XAccountLockedException e) {
+                    twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.LOCKED);
+                    workingAccounts.remove(twitterAccount.getId());
+                    return;
+                } catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
+                         XAccountCooldownException ignored) {
+                } catch (XAccountSuspendedException e) {
+                    twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.SUSPENDED);
+                    workingAccounts.remove(twitterAccount.getId());
+                    return;
+                } catch (Exception e) {
+                    log.error("Unexpected error in execution method : " + e + " " + twitterAccount.getUsername());
+                    status = twitterAccountService.get(twitterAccountId).getStatus();
+                    if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNEXPECTED_ERROR);
+                        workingAccounts.remove(twitterAccount.getId());
+                        return;
+                    }
+                }
 
             } else {
                 twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.UNPAID);
@@ -153,19 +153,68 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
         }
     }
 
-    private void processGroup(TwitterAccount twitterAccount, String groupId, Integer postToRetweet) throws InterruptedException {
+    private int processGroup(TwitterAccount twitterAccount, String groupId, Integer postToRetweet, int retweetCounter) throws InterruptedException {
         XGroupMessage groupMessages = getGroupMessages(twitterAccount, groupId);
         if (nonNull(groupMessages)) {
             List<Entry> filteredEntries = filterEntries(groupMessages.getConversationTimeline().getEntries(), twitterAccount.getRestId(), postToRetweet);
+            List<String> screenNames = convertIdsToScreenNames(filteredEntries, groupMessages.getConversationTimeline().getUsers());
             if (!filteredEntries.isEmpty()) {
                 writeMessage(twitterAccount, groupId);
-                try {
-                    filteredEntries.forEach(entry -> retweetUserMedia(entry.getMessage().getMessageData().getSenderId(), twitterAccount));
-                } catch (NullPointerException e) {
-                    log.error("ProcessGroup : nullpointer while retweeting. Account : " + twitterAccount.getUsername());
+                for (String screenName : screenNames) {
+                    try {
+                        XUserData userData = twitterApiRequests.getUserByScreenName(screenName, twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
+                        retweetPinnedPost(userData, twitterAccount);
+                        retweetCounter++;
+                    } catch (IndexOutOfBoundsException | XAccountRateLimitException | XAccountPermissionException |
+                             XAccountOverCapacityException | SocketTimeoutException | SocketException |
+                             XAccountCooldownException ignored) {
+                    } catch (XAccountAuthException e) {
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
+                    } catch (XAccountLockedException e) {
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.LOCKED);
+                    } catch (XAccountSuspendedException e) {
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.SUSPENDED);
+                    } catch (XAccountProxyException | ProtocolException e) {
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.PROXY_ERROR);
+                    } catch (Exception e) {
+                        log.error("process group error : " + e + " " + twitterAccount.getUsername());
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.UNEXPECTED_ERROR);
+                    }
+                }
+            }
+//            if (!filteredEntries.isEmpty()) {
+//                writeMessage(twitterAccount, groupId);
+//                try {
+//                    filteredEntries.forEach(entry -> retweetUserMedia(entry.getMessage().getMessageData().getSenderId(), twitterAccount));
+//                } catch (NullPointerException e) {
+//                    log.error("ProcessGroup : nullpointer while retweeting. Account : " + twitterAccount.getUsername());
+//                }
+//            }
+        }
+        return retweetCounter;
+    }
+
+    private void retweetPinnedPost(XUserData userData, TwitterAccount twitterAccount) {
+        String postId = userData.getData().getUser().getResult().getLegacy().getPinnedTweetIdsStr().get(0);
+        if (nonNull(postId)) {
+            deleteRetweet(twitterAccount, postId);
+            retweet(twitterAccount, postId);
+        }
+    }
+
+    private List<String> convertIdsToScreenNames(List<Entry> entries, Map<String, XUser> users) {
+        List<String> screenNames = new ArrayList<>();
+        for (Entry entry : entries) {
+            MessageData messageData = entry.getMessage().getMessageData();
+            String senderId = messageData.getSenderId();
+            for (Map.Entry<String, XUser> userEntry : users.entrySet()) {
+                XUser xUser = userEntry.getValue();
+                if (xUser.getUserId().equals(senderId)) {
+                    screenNames.add(xUser.getScreenName());
                 }
             }
         }
+        return screenNames;
     }
 
     private List<Entry> filterEntries(List<Entry> entries, String twitterAccountRestId, Integer postToRetweet) {
@@ -329,9 +378,10 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     }
 
     private void writeMessage(TwitterAccount twitterAccount, String groupId) throws InterruptedException {
-        String message = getRandomChatMessage(twitterAccount.getMessages());
+        TwitterChatMessage chatMessage = getRandomChatMessage(twitterAccount.getMessages());
+        String mediaId = getGifMediaId(twitterAccount, chatMessage);
         try {
-            twitterApiRequests.writeMessage(twitterAccount.getUsername(), message, groupId, twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
+            twitterApiRequests.writeMessage(twitterAccount.getUsername(), chatMessage.getText(), groupId, twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken(), mediaId);
             twitterAccountService.updateSentMessages(twitterAccount.getId());
         } catch (XAccountAuthException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
@@ -390,14 +440,43 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
         }
     }
 
-    private String getRandomChatMessage(List<TwitterChatMessage> messages) {
-        if (nonNull(messages)) {
-            List<String> groupMessages = new ArrayList<>();
-            for (TwitterChatMessage message : messages) {
-                groupMessages.add(message.getText());
+    private String getGifMediaId(TwitterAccount twitterAccount, TwitterChatMessage message) throws InterruptedException {
+        String gifUrl = message.getGifUrl();
+        if (nonNull(gifUrl)) {
+            if (gifUrl.length() > 5) {
+                try {
+                    XGif gif = twitterApiRequests.getGifMediaId(twitterAccount, gifUrl);
+                    for (int i = 0; i < 5; i++) {
+                        Thread.sleep(5000);
+                        XGifStatus status = twitterApiRequests.checkGifStatus(twitterAccount, gif.getMediaIdString());
+                        if (status.getProcessingInfo().getState().equals("succeeded")) {
+                            return gif.getMediaIdString();
+                        }
+                    }
+                } catch (IOException e) {
+                    log.error("Gif Media id didn't receive : " + twitterAccount.getUsername());
+                }
             }
+        }
+        return null;
+    }
+
+    //    private String getRandomChatMessage(List<TwitterChatMessage> messages) {
+//        if (nonNull(messages)) {
+//            List<String> groupMessages = new ArrayList<>();
+//            for (TwitterChatMessage message : messages) {
+//                groupMessages.add(message.getText());
+//            }
+//            Random rand = new Random();
+//            return groupMessages.get(rand.nextInt(groupMessages.size()));
+//        } else {
+//            throw new RuntimeException("No available messages exist");
+//        }
+//    }
+    private TwitterChatMessage getRandomChatMessage(List<TwitterChatMessage> messages) {
+        if (nonNull(messages)) {
             Random rand = new Random();
-            return groupMessages.get(rand.nextInt(groupMessages.size()));
+            return messages.get(rand.nextInt(messages.size()));
         } else {
             throw new RuntimeException("No available messages exist");
         }
@@ -446,11 +525,9 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     private void updateAccountStatistics(Long twitterAccountId, XUserData userData, TwitterAccount twitterAccount, int friendsBefore, int messagesBefore, int retweetsBefore) {
         if (nonNull(userData)) {
             int friendsAfter = userData.getData().getUser().getResult().getLegacy().getFriendsCount();
-            log.info("Friends after : " + friendsAfter + " account : " + twitterAccount.getUsername());
             int retweetsAfter = userData.getData().getUser().getResult().getLegacy().getStatusesCount();
             int messagesAfter = twitterAccount.getMessagesSent();
             int friendsDifference = friendsAfter - friendsBefore;
-            log.info("Friends dif : " + friendsDifference + " account : " + twitterAccount.getUsername());
             int messagesDifference = messagesAfter - messagesBefore;
             int retweetDifference = retweetsAfter - retweetsBefore;
             twitterAccountService.updateStatisticDifference(twitterAccountId, friendsDifference, messagesDifference, retweetDifference, friendsAfter, retweetsAfter);

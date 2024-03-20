@@ -21,6 +21,8 @@ public class MessageWrite {
     private boolean include_quote_count;
     @JsonProperty("dm_users")
     private boolean dm_users;
+    @JsonProperty("media_id")
+    private String mediaId;
 
     public MessageWrite(String conversation_id, String text) {
         this.conversation_id = conversation_id;
@@ -30,5 +32,16 @@ public class MessageWrite {
         this.include_cards = 1;
         this.include_quote_count = true;
         this.dm_users = false;
+    }
+
+    public MessageWrite(String conversation_id, String text, String mediaId) {
+        this.conversation_id = conversation_id;
+        this.recipient_ids = false;
+        this.text = text;
+        this.cards_platform = "Web-12";
+        this.include_cards = 1;
+        this.include_quote_count = true;
+        this.dm_users = false;
+        this.mediaId = mediaId;
     }
 }

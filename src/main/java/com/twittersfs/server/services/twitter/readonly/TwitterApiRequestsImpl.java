@@ -7,6 +7,8 @@ import com.twittersfs.server.dtos.twitter.error.XApiError;
 import com.twittersfs.server.dtos.twitter.group.XUserGroup;
 import com.twittersfs.server.dtos.twitter.media.XUserMedia;
 import com.twittersfs.server.dtos.twitter.message.MessageWrite;
+import com.twittersfs.server.dtos.twitter.message.XGif;
+import com.twittersfs.server.dtos.twitter.message.XGifStatus;
 import com.twittersfs.server.dtos.twitter.message.XGroupMessage;
 import com.twittersfs.server.dtos.twitter.retweet.DeleteRetweet;
 import com.twittersfs.server.dtos.twitter.user.XUserData;
@@ -41,6 +43,7 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
         OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
         try (Response response = client.newCall(buildRequest(url, cookies, auth, csrf)).execute()) {
             String jsonResponse = response.body().string();
+//            log.info("RESP SCREEN NAME : " + jsonResponse);
             if (!response.isSuccessful()) {
                 handleErrorResponse(twitterAccountName, jsonResponse, mapper);
             }
@@ -57,6 +60,7 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL);
         try (Response response = client.newCall(buildRequest(url, cookies, auth, csrf)).execute()) {
             String jsonResponse = response.body().string();
+//            log.info("RESP USER MEDIA : " + jsonResponse);
             if (!response.isSuccessful()) {
                 handleErrorResponse(twitterAccountName, jsonResponse, mapper);
             }
@@ -79,6 +83,7 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
         String url = urlBuilder.build().toString();
         try (Response response = client.newCall(buildRequest(url, cookies, auth, csrf)).execute()) {
             String jsonResponse = response.body().string();
+//            log.info("RESP CONVERS : " + jsonResponse);
             if (!response.isSuccessful()) {
                 handleErrorResponse(twitterAccountName, jsonResponse, mapper);
             }
@@ -94,6 +99,7 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
         String url = "https://twitter.com/i/api/1.1/dm/conversation/" + groupId + ".json?";
         try (Response response = client.newCall(buildRequest(url, cookies, auth, csrf)).execute()) {
             String jsonResponse = response.body().string();
+//            log.info("RESP GRP MSG : " + jsonResponse);
             if (!response.isSuccessful()) {
                 handleErrorResponse(twitterAccountName, jsonResponse, mapper);
             }
@@ -102,16 +108,25 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     }
 
     @Override
-    public void writeMessage(String twitterAccountName, String message, String groupId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
-        String url = "https://twitter.com/i/api/1.1/dm/new2.json?ext=mediaColor%2CaltText%2CmediaStats%2ChighlightedLabel%2ChasNftAvatar%2CvoiceInfo%2CbirdwatchPivot%2CsuperFollowMetadata%2CunmentionInfo%2CeditControl&include_ext_alt_text=true&include_ext_limited_action_results=true&include_reply_count=1&tweet_mode=extended&include_ext_views=true&include_groups=true&include_inbox_timelines=true&include_ext_media_color=true&supports_reactions=true";
+    public void writeMessage(String twitterAccountName, String message, String groupId, Proxy proxy, String cookies, String auth, String csrf, String mediaId) throws IOException {
         OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
         ObjectMapper mapper = new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        MessageWrite payload = new MessageWrite(groupId, message);
-        RequestBody requestBody = RequestBody.create(
-                MediaType.parse("application/json"), mapper.writeValueAsString(payload));
-        buildRequestBody(twitterAccountName, cookies, auth, csrf, client, mapper, url, requestBody);
+
+        if (nonNull(mediaId)) {
+            String url = "https://twitter.com/i/api/1.1/dm/new2.json?ext=mediaColor%2CaltText%2CmediaStats%2ChighlightedLabel%2CvoiceInfo%2CbirdwatchPivot%2CsuperFollowMetadata%2CunmentionInfo%2CeditControl&include_ext_alt_text=true&include_ext_limited_action_results=true&include_reply_count=1&tweet_mode=extended&include_ext_views=true&include_groups=true&include_inbox_timelines=true&include_ext_media_color=true&supports_reactions=true";
+            MessageWrite payload = new MessageWrite(groupId, message, mediaId);
+            RequestBody requestBody = RequestBody.create(
+                    MediaType.parse("application/json"), mapper.writeValueAsString(payload));
+            buildRequestBody(twitterAccountName, cookies, auth, csrf, client, mapper, url, requestBody);
+        } else {
+            String url = "https://twitter.com/i/api/1.1/dm/new2.json?ext=mediaColor%2CaltText%2CmediaStats%2ChighlightedLabel%2ChasNftAvatar%2CvoiceInfo%2CbirdwatchPivot%2CsuperFollowMetadata%2CunmentionInfo%2CeditControl&include_ext_alt_text=true&include_ext_limited_action_results=true&include_reply_count=1&tweet_mode=extended&include_ext_views=true&include_groups=true&include_inbox_timelines=true&include_ext_media_color=true&supports_reactions=true";
+            MessageWrite payload = new MessageWrite(groupId, message);
+            RequestBody requestBody = RequestBody.create(
+                    MediaType.parse("application/json"), mapper.writeValueAsString(payload));
+            buildRequestBody(twitterAccountName, cookies, auth, csrf, client, mapper, url, requestBody);
+        }
     }
 
     @Override
@@ -157,6 +172,50 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
             RequestBody requestBody = RequestBody.create(mediaType, json);
             String url = "https://twitter.com/i/api/graphql/oBwyQ0_xVbAQ8FAyG0pCRA/AddParticipantsMutation";
             buildRequestBody(donor.getUsername(), donor.getCookie(), donor.getAuthToken(), donor.getCsrfToken(), client, mapper, url, requestBody);
+        }
+    }
+
+    @Override
+    public XGif getGifMediaId(TwitterAccount twitterAccount, String gifUrl) throws IOException {
+        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
+        ObjectMapper mapper = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        String url = "https://upload.twitter.com/i/media/upload.json?command=INIT&source_url="+ gifUrl +"&media_type=image%2Fgif&media_category=dm_gif";
+        Request request = new Request.Builder()
+                .url(url)
+                .post(RequestBody.create(MediaType.get("application/json"), ""))
+                .header("authority", "upload.twitter.com")
+                .header("accept", "*/*")
+                .header("authorization", twitterAccount.getAuthToken())
+                .header("cookie", twitterAccount.getCookie())
+                .header("origin", "https://twitter.com")
+                .header("referer", "https://twitter.com/")
+                .header("x-csrf-token", twitterAccount.getCsrfToken())
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            String jsonResponse = response.body().string();
+//            log.info("RESP GIF : " + jsonResponse);
+            if (!response.isSuccessful()) {
+                handleErrorResponse(twitterAccount.getUsername(), jsonResponse, mapper);
+            }
+            return mapper.readValue(jsonResponse, XGif.class);
+        }
+    }
+
+    @Override
+    public XGifStatus checkGifStatus(TwitterAccount twitterAccount, String mediaId) throws IOException {
+        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
+        ObjectMapper mapper = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        String url = "https://upload.twitter.com/i/media/upload.json?command=STATUS&media_id=" + mediaId;
+        try (Response response = client.newCall(buildRequest(url, twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken())).execute()) {
+            String jsonResponse = response.body().string();
+            if (!response.isSuccessful()) {
+                handleErrorResponse(twitterAccount.getUsername(), jsonResponse, mapper);
+            }
+            return mapper.readValue(jsonResponse, XGifStatus.class);
         }
     }
 
@@ -234,6 +293,7 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     private void buildRequestBody(String twitterAccountName, String cookies, String auth, String csrf, OkHttpClient client, ObjectMapper mapper, String url, RequestBody requestBody) throws IOException {
         try (Response response = client.newCall(buildRequest(requestBody, url, cookies, auth, csrf)).execute()) {
             String jsonResponse = response.body().string();
+//            log.info("RESP : " + jsonResponse);
             if (!response.isSuccessful()) {
                 handleErrorResponse(twitterAccountName, jsonResponse, mapper);
             }

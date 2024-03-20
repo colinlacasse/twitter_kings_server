@@ -64,7 +64,7 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
                 TwitterAccount account = twitterAccountRepo.findById(twitterAccount.getId()).orElseThrow(() -> new RuntimeException("No Acc"));
                 String csrf = account.getCsrfToken();
                 if (nonNull(csrf)) {
-                    twitterAccountRepo.updateStatus(twitterAccount.getId(), TwitterAccountStatus.UPDATED_COOKIES);
+//                    twitterAccountRepo.updateStatus(twitterAccount.getId(), TwitterAccountStatus.UPDATED_COOKIES);
                     break;
                 }
             } catch (Exception e) {

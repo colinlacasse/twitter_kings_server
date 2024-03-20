@@ -15,7 +15,10 @@ public class TwitterChatMessage {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(length = 500)
     private String text;
+    @Column(length = 2000)
+    private String gifUrl;
     @ManyToOne
     private TwitterAccount twitterAccount;
 }

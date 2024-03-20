@@ -30,40 +30,33 @@ public class ScheduleUpdates {
         this.appGroupService = appGroupService;
     }
 
-//    @Scheduled(fixedRate = 14400000)
-//    public void updateCookiesAndRestart() {
-//        List<TwitterAccount> all = twitterAccountRepo.findAll();
-//        List<TwitterAccount> needUpdate = new ArrayList<>();
-//        for (TwitterAccount account : all) {
-//            if (account.getStatus().equals(TwitterAccountStatus.INVALID_COOKIES)) {
-//                needUpdate.add(account);
-//            }
-//        }
-//
-//        for (TwitterAccount account : needUpdate) {
-//            try {
-//                authService.login(account);
-//                TwitterAccount updated = twitterAccountRepo.findById(account.getId())
-//                        .orElseThrow(() -> new RuntimeException("Twitter account wish such Id does not exist"));
-//                if (updated.getStatus().equals(TwitterAccountStatus.UPDATED_COOKIES)) {
-//                    twitterAppService.run(updated.getId());
-//                }
-//            } catch (Exception e) {
-//                log.error("Error while restarting : " + e);
-//            }
-//        }
-//    }
-
-    @Scheduled(fixedRate = 86400000)
-    public void updatedGroups() {
+    @Scheduled(fixedRate = 14400000)
+    public void updateCookiesAndRestart() {
         List<TwitterAccount> all = twitterAccountRepo.findAll();
         for (TwitterAccount account : all) {
-            SubscriptionType subscriptionType = account.getModel().getUser().getSubscriptionType();
-            if (subscriptionType.equals(SubscriptionType.AGENCY)) {
-                if (account.getGroups() < 10) {
-                    appGroupService.addGroupsToAgencyAccount(account, account.getRestId());
+            TwitterAccountStatus status = account.getStatus();
+            if (status.equals(TwitterAccountStatus.INVALID_COOKIES) || status.equals(TwitterAccountStatus.UNEXPECTED_ERROR)) {
+                authService.login(account);
+                try {
+                    authService.login(account);
+                    twitterAppService.run(account.getId());
+                } catch (Exception e) {
+                    log.error("Error while restarting : " + e + " account : " + account.getUsername());
                 }
             }
         }
     }
+
+//    @Scheduled(fixedRate = 86400000)
+//    public void updatedGroups() {
+//        List<TwitterAccount> all = twitterAccountRepo.findAll();
+//        for (TwitterAccount account : all) {
+//            SubscriptionType subscriptionType = account.getModel().getUser().getSubscriptionType();
+//            if (subscriptionType.equals(SubscriptionType.AGENCY)) {
+//                if (account.getGroups() < 10) {
+//                    appGroupService.addGroupsToAgencyAccount(account, account.getRestId());
+//                }
+//            }
+//        }
+//    }
 }

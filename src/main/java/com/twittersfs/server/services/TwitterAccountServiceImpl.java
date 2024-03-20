@@ -85,7 +85,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
 
             TwitterAccount account = twitterAccountRepo.findByUsername(parseTwitterUsername(dto.getUsername()))
                     .orElseThrow(() -> new RuntimeException("Twitter account with such username does not exist"));
-            messageRepo.save(toChatMessageEntity(dto.getMessage(), account));
+            messageRepo.save(toChatMessageEntity(dto.getMessage(), dto.getGifUrl(), account));
             Float balance = user.getBalance();
             user.setBalance(balance - Prices.X_DAY_SUBSCRIPTION.getValue());
             userRepo.save(user);
@@ -231,7 +231,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     public void addChatMessage(Long twitterAccountId, TwitterChatMessageDto dto) {
         TwitterAccount account = twitterAccountRepo.findById(twitterAccountId)
                 .orElseThrow(() -> new RuntimeException("Twitter account wish such Id does not exist"));
-        messageRepo.save(toChatMessageEntity(dto.getMessage(), account));
+        messageRepo.save(toChatMessageEntity(dto.getMessage(), dto.getGifUrl(), account));
     }
 
     @Override
@@ -407,13 +407,19 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         return TwitterChatMessageData.builder()
                 .id(entity.getId())
                 .text(entity.getText())
+                .gifUrl(entity.getGifUrl())
                 .build();
     }
 
-    private TwitterChatMessage toChatMessageEntity(String message, TwitterAccount account) {
+    private TwitterChatMessage toChatMessageEntity(String text, String gifUrl, TwitterAccount account) {
+        String url = "";
+        if (nonNull(gifUrl)) {
+            url = gifUrl;
+        }
         return TwitterChatMessage.builder()
                 .twitterAccount(account)
-                .text(message)
+                .text(text)
+                .gifUrl(url)
                 .build();
     }
 

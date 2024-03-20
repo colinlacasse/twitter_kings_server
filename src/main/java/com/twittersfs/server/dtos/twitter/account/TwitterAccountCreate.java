@@ -21,4 +21,5 @@ public class TwitterAccountCreate {
     private String email;
     @NotBlank(message = "Twitter account password must not be empty")
     private String password;
+    private String gifUrl;
 }

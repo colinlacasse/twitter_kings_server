@@ -8,4 +8,5 @@ import lombok.Getter;
 public class TwitterChatMessageData {
     private Long id;
     private String text;
+    private String gifUrl;
 }

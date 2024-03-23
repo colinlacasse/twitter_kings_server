@@ -8,5 +8,5 @@ import java.util.List;
 @Getter
 @Setter
 public class Solution {
-    private List<Integer> objects;
+    private String token;
 }

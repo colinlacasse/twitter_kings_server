@@ -8,6 +8,7 @@ import com.twittersfs.server.repos.TwitterAccountRepo;
 import com.twittersfs.server.services.twitter.app.TwitterAppService;
 import com.twittersfs.server.services.twitter.app.commands.AppGroupService;
 import com.twittersfs.server.services.twitter.auth.TwitterAuthService;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ public class ScheduleUpdates {
     private final TwitterAccountRepo twitterAccountRepo;
     private final TwitterAppService twitterAppService;
     private final TwitterAuthService authService;
+    private boolean firstRun = false;
     private final AppGroupService appGroupService;
 
     public ScheduleUpdates(TwitterAccountRepo twitterAccountRepo, TwitterAppService twitterAppService, TwitterAuthService authService, AppGroupService appGroupService) {
@@ -29,23 +31,37 @@ public class ScheduleUpdates {
         this.authService = authService;
         this.appGroupService = appGroupService;
     }
-
-    @Scheduled(fixedRate = 14400000)
-    public void updateCookiesAndRestart() {
-        List<TwitterAccount> all = twitterAccountRepo.findAll();
-        for (TwitterAccount account : all) {
-            TwitterAccountStatus status = account.getStatus();
-            if (status.equals(TwitterAccountStatus.INVALID_COOKIES) || status.equals(TwitterAccountStatus.UNEXPECTED_ERROR)) {
-                authService.login(account);
-                try {
-                    authService.login(account);
-                    twitterAppService.run(account.getId());
-                } catch (Exception e) {
-                    log.error("Error while restarting : " + e + " account : " + account.getUsername());
-                }
-            }
-        }
-    }
+//    @PostConstruct
+//    public void init() {
+//        firstRun = true;
+//    }
+//
+//    @Scheduled(fixedRate = 10800000)
+//    public void updateCookiesAndRestart() {
+//        if (firstRun) {
+//            try {
+//                Thread.sleep(300000);
+//            } catch (InterruptedException e) {
+//                Thread.currentThread().interrupt();
+//            }
+//            firstRun = false;
+//        }
+//
+//        log.info("!!!!!!!!!!!!!!!!!!Updating cookies started!!!!!!!!!!!!!!!!!!!!");
+//        List<TwitterAccount> all = twitterAccountRepo.findAll();
+//        for (TwitterAccount account : all) {
+//            TwitterAccount twitterAccount = twitterAccountRepo.findById(account.getId()).orElseThrow(()-> new RuntimeException("No account with such id"));
+//            TwitterAccountStatus status = twitterAccount.getStatus();
+//            if (status.equals(TwitterAccountStatus.INVALID_COOKIES) || status.equals(TwitterAccountStatus.UNEXPECTED_ERROR)) {
+//                try {
+//                    authService.login(account);
+//                    twitterAppService.run(account.getId());
+//                } catch (Exception e) {
+//                    log.error("Error while restarting : " + e + " account : " + account.getUsername());
+//                }
+//            }
+//        }
+//    }
 
 //    @Scheduled(fixedRate = 86400000)
 //    public void updatedGroups() {

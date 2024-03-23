@@ -1,6 +1,6 @@
-package com.twittersfs.server.services.twitter.auth.models;
+package com.twittersfs.server.dtos.twitter.auth.common;
 
-import com.twittersfs.server.services.twitter.auth.enums.EAuthenticationType;
+import com.twittersfs.server.enums.EAuthenticationType;
 import lombok.Getter;
 import lombok.Setter;
 

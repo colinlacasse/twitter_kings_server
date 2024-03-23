@@ -10,6 +10,5 @@ import java.util.List;
 public class Task {
     private String type;
     private String websiteURL;
-    private List<String> images;
-    private String question;
+    private String websitePublicKey;
 }

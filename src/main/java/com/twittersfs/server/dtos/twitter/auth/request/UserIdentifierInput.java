@@ -1,19 +1,21 @@
-package com.twittersfs.server.services.twitter.auth.models.subtasks;
+package com.twittersfs.server.dtos.twitter.auth.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 public class UserIdentifierInput {
     @JsonProperty("setting_responses")
-    private SettingResponse[] settingResponse;
+    private List<SettingResponse> settingResponse;
     @JsonProperty("link")
     private String link;
 
     public UserIdentifierInput(String userId) {
-        this.settingResponse = new SettingResponse[]{new SettingResponse(userId)};
+        this.settingResponse = List.of(new SettingResponse(userId));
         this.link = "next_link";
     }
 
@@ -33,8 +35,8 @@ public class UserIdentifierInput {
         @JsonProperty("text_data")
         TextData textData;
 
-        public ResponseData(String email) {
-            this.textData = new TextData(email);
+        public ResponseData(String username) {
+            this.textData = new TextData(username);
         }
     }
 

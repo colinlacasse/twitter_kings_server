@@ -1,4 +1,4 @@
-package com.twittersfs.server.services.twitter.auth.models.subtasks;
+package com.twittersfs.server.dtos.twitter.auth.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;

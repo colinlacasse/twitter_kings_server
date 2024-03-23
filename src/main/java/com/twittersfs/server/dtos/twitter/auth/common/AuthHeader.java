@@ -1,5 +1,6 @@
-package com.twittersfs.server.services.twitter.auth.models;
+package com.twittersfs.server.dtos.twitter.auth.common;
 
+import com.twittersfs.server.dtos.twitter.auth.common.AuthCredential;
 import lombok.Getter;
 import lombok.Setter;
 import okhttp3.Headers;

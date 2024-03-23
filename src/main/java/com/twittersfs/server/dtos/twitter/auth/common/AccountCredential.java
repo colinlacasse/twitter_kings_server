@@ -1,4 +1,4 @@
-package com.twittersfs.server.services.twitter.auth.models;
+package com.twittersfs.server.dtos.twitter.auth.common;
 
 import lombok.Builder;
 import lombok.Getter;

@@ -1,4 +1,4 @@
-package com.twittersfs.server.services.twitter.auth.enums;
+package com.twittersfs.server.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 public enum ELoginSubtasks {
     JS_INSTRUMENTATION("LoginJsInstrumentationSubtask"),
     ENTER_USER_IDENTIFIER("LoginEnterUserIdentifierSSO"),
-    ENTER_ALTERNATE_USER_IDENTIFIER("LoginEnterAlternateIdentifierSubtask"),
+//    ENTER_ALTERNATE_USER_IDENTIFIER("LoginEnterAlternateIdentifierSubtask"),
     ENTER_PASSWORD("LoginEnterPassword"),
     ACCOUNT_DUPLICATION_CHECK("AccountDuplicationCheck");
 

@@ -58,6 +58,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     @Override
     public void execute(Long twitterAccountId) {
         checkIfAccountRunning(twitterAccountId);
+        workingAccounts.add(twitterAccountId);
         twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
         TwitterAccount twitterAccount = twitterAccountService.get(twitterAccountId);
         if (!nonNull(twitterAccount.getCsrfToken())) {
@@ -77,6 +78,11 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
         while (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN) || status.equals(TwitterAccountStatus.UPDATED_COOKIES)) {
             if (isNotExpired(twitterAccount)) {
                 try {
+                    if (!nonNull(twitterAccount.getCsrfToken())) {
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.INVALID_COOKIES);
+                        workingAccounts.remove(twitterAccount.getId());
+                        return;
+                    }
                     if (status.equals(TwitterAccountStatus.COOLDOWN)) {
                         twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
                     }

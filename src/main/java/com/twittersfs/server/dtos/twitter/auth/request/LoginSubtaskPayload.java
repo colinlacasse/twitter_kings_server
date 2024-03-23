@@ -1,7 +1,7 @@
-package com.twittersfs.server.services.twitter.auth.models.subtasks;
+package com.twittersfs.server.dtos.twitter.auth.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.twittersfs.server.services.twitter.auth.enums.ELoginSubtasks;
+import com.twittersfs.server.enums.ELoginSubtasks;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -32,8 +32,8 @@ public class LoginSubtaskPayload {
         public JsInstrumentationInput jsInstrumentation;
         @JsonProperty("settings_list")
         public UserIdentifierInput userIdentifier;
-        @JsonProperty("enter_text")
-        public AlternateUserIdentifierInput alternateUserIdentifierInput;
+//        @JsonProperty("enter_text")
+//        public AlternateUserIdentifierInput alternateUserIdentifierInput;
         @JsonProperty("enter_password")
         public PasswordInput passwordInput;
         @JsonProperty("check_logged_in_account")
@@ -45,9 +45,7 @@ public class LoginSubtaskPayload {
                 this.jsInstrumentation = new JsInstrumentationInput();
             } else if (subtasksId == ELoginSubtasks.ENTER_USER_IDENTIFIER && nonNull(inputText)) {
                 this.userIdentifier = new UserIdentifierInput(inputText);
-            } else if (subtasksId == ELoginSubtasks.ENTER_ALTERNATE_USER_IDENTIFIER && nonNull(inputText)) {
-                this.alternateUserIdentifierInput = new AlternateUserIdentifierInput(inputText);
-            } else if (subtasksId == ELoginSubtasks.ENTER_PASSWORD && nonNull(inputText)) {
+            }  else if (subtasksId == ELoginSubtasks.ENTER_PASSWORD && nonNull(inputText)) {
                 this.passwordInput = new PasswordInput(inputText);
             }
         }

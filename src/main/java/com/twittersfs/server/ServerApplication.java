@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableJpaAuditing
 @EnableScheduling
-//@EnableConfigurationProperties
+@EnableConfigurationProperties
 @EnableFeignClients
 public class ServerApplication {
 

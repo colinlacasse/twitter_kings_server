@@ -1,4 +1,4 @@
-package com.twittersfs.server.services.twitter.auth.enums;
+package com.twittersfs.server.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

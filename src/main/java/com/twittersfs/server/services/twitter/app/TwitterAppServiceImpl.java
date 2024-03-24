@@ -22,6 +22,7 @@ public class TwitterAppServiceImpl implements TwitterAppService {
 
     @Override
     public void run(Long twitterAccountId) {
+        commandsService.checkIfAccountRunning(twitterAccountId);
         Runnable start = () -> {
             try {
                 commandsService.execute(twitterAccountId);

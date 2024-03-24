@@ -28,6 +28,7 @@ public class BotCallbackHandler {
             case "12", "35", "60", "120", "200" ->
                     telegramBotService.setRefillAmount(bot, query.getMessage().getChatId(), callbackData);
             case "payed" -> telegramBotService.handlePayedButton(bot, query.getMessage().getChatId());
+            case "support" -> telegramBotService.openSupport(bot,query.getMessage().getChatId());
             case "cancel" ->
                     telegramBotService.cancel(bot, event.getCallbackQuery().getMessage().getChatId(), event.getCallbackQuery().getMessage().getMessageId());
 

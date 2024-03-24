@@ -1,5 +1,6 @@
 package com.twittersfs.server.telegram.markup;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+@Slf4j
 public class TelegramBotMarkups {
 
     public InlineKeyboardMarkup languageKeyboard() {
@@ -35,9 +37,9 @@ public class TelegramBotMarkups {
         englishKeyboard.put("sfsgroup", "\uD83D\uDCAC Soft Updates");
         englishKeyboard.put("support", "\uD83D\uDDFF Online Support");
         Map<String, String> russianKeyboard = new HashMap<>();
-        englishKeyboard.put("topup", "\uD83D\uDCB0 Пополнить баланс");
-        englishKeyboard.put("sfsgroup", "\uD83D\uDCAC Апдейты по софту");
-        englishKeyboard.put("support", "\uD83D\uDDFF Онлайн поддержка");
+        russianKeyboard.put("topup", "\uD83D\uDCB0 Пополнить баланс");
+        russianKeyboard.put("sfsgroup", "\uD83D\uDCAC Апдейты по софту");
+        russianKeyboard.put("support", "\uD83D\uDDFF Онлайн поддержка");
         switch (language) {
             case "english" -> {
                 return generateKeyBoardMarkup(englishKeyboard);
@@ -50,17 +52,17 @@ public class TelegramBotMarkups {
 
     public InlineKeyboardMarkup balanceMarkup(String language) {
         Map<String, String> englishKeyboard = new HashMap<>();
-        englishKeyboard.put("12", "Pay 10 \uD83D\uDCB8 get 12 \uD83D\uDCB8");
-        englishKeyboard.put("35", "Pay 30 \uD83D\uDCB8 get 35 \uD83D\uDCB8");
-        englishKeyboard.put("60", "Pay 50 \uD83D\uDCB8 get 60 \uD83D\uDCB8");
-        englishKeyboard.put("120", "Pay 100 \uD83D\uDCB8 get 120 \uD83D\uDCB8");
-        englishKeyboard.put("200", "Pay 150 \uD83D\uDCB8 get 200 \uD83D\uDCB8");
+        englishKeyboard.put("12", "Pay 10 \uD83D\uDCB8 -> Get 12 \uD83D\uDCB8");
+        englishKeyboard.put("35", "Pay 30 \uD83D\uDCB8 -> Get 35 \uD83D\uDCB8");
+        englishKeyboard.put("60", "Pay 50 \uD83D\uDCB8 -> Get 60 \uD83D\uDCB8");
+        englishKeyboard.put("120", "Pay 100 \uD83D\uDCB8 -> Get 120 \uD83D\uDCB8");
+        englishKeyboard.put("200", "Pay 150 \uD83D\uDCB8 -> Get 200 \uD83D\uDCB8");
         Map<String, String> russianKeyboard = new HashMap<>();
-        russianKeyboard.put("12", "Платишь 10 \uD83D\uDCB8 Получаешь 12 \uD83D\uDCB8");
-        russianKeyboard.put("35", "Платишь 30 \uD83D\uDCB8 Получаешь 35 \uD83D\uDCB8");
-        russianKeyboard.put("60", "Платишь 50 \uD83D\uDCB8 Получаешь 60 \uD83D\uDCB8");
-        russianKeyboard.put("120", "Платишь 100 \uD83D\uDCB8 Получаешь 120 \uD83D\uDCB8");
-        russianKeyboard.put("200", "Платишь 150 \uD83D\uDCB8 Получаешь 200 \uD83D\uDCB8");
+        russianKeyboard.put("12", "Платишь 10 \uD83D\uDCB8 -> Получаешь 12 \uD83D\uDCB8");
+        russianKeyboard.put("35", "Платишь 30 \uD83D\uDCB8 -> Получаешь 35 \uD83D\uDCB8");
+        russianKeyboard.put("60", "Платишь 50 \uD83D\uDCB8 -> Получаешь 60 \uD83D\uDCB8");
+        russianKeyboard.put("120", "Платишь 100 \uD83D\uDCB8 -> Получаешь 120 \uD83D\uDCB8");
+        russianKeyboard.put("200", "Платишь 150 \uD83D\uDCB8 -> Получаешь 200 \uD83D\uDCB8");
         switch (language) {
             case "english" -> {
                 return generateKeyBoardMarkup(englishKeyboard);
@@ -82,19 +84,6 @@ public class TelegramBotMarkups {
             default -> payed.setText("\u2705 Оплачено");
         }
         keyboardButtonsRow.add(payed);
-        rowList.add(keyboardButtonsRow);
-        markup.setKeyboard(rowList);
-        return markup;
-    }
-
-    public InlineKeyboardMarkup approveButton(){
-        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-        InlineKeyboardButton approve = new InlineKeyboardButton();
-        List<InlineKeyboardButton> keyboardButtonsRow = new ArrayList<>();
-        List<List<InlineKeyboardButton>> rowList = new ArrayList<>();
-        approve.setCallbackData("approve");
-        approve.setText("Approve");
-        keyboardButtonsRow.add(approve);
         rowList.add(keyboardButtonsRow);
         markup.setKeyboard(rowList);
         return markup;

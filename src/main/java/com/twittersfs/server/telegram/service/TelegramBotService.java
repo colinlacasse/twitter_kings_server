@@ -15,4 +15,5 @@ public interface TelegramBotService {
     void handlePayedButton(SpaceTraffBot bot, Long chatId) throws TelegramApiException;
     void setEmail(SpaceTraffBot bot, Long chatId, String email) throws TelegramApiException;
     void approve(SpaceTraffBot bot, Long chatId, String tempId) throws TelegramApiException;
+    void openSupport(SpaceTraffBot bot, Long chatId) throws TelegramApiException;
 }

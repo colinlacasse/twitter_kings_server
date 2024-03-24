@@ -10,7 +10,6 @@ import com.twittersfs.server.entities.TwitterChatMessage;
 import com.twittersfs.server.enums.TwitterAccountStatus;
 import com.twittersfs.server.exceptions.twitter.*;
 import com.twittersfs.server.services.TwitterAccountService;
-import com.twittersfs.server.services.twitter.auth.TwitterAuthService;
 import com.twittersfs.server.services.twitter.readonly.TwitterApiRequests;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,13 +32,22 @@ import static java.util.Objects.nonNull;
 public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     private final TwitterApiRequests twitterApiRequests;
     private final TwitterAccountService twitterAccountService;
-    private final TwitterAuthService twitterAuthService;
     Set<Long> workingAccounts = ConcurrentHashMap.newKeySet();
 
-    public TwitterCommandsServiceImpl(TwitterApiRequests twitterApiRequests, TwitterAccountService twitterAccountService, TwitterAuthService twitterAuthService) {
+    public TwitterCommandsServiceImpl(TwitterApiRequests twitterApiRequests, TwitterAccountService twitterAccountService) {
         this.twitterApiRequests = twitterApiRequests;
         this.twitterAccountService = twitterAccountService;
-        this.twitterAuthService = twitterAuthService;
+    }
+
+    @Override
+    public void checkIfAccountRunning(Long accountId) {
+        if (!workingAccounts.isEmpty()) {
+            for (Long id : workingAccounts) {
+                if (Objects.equals(id, accountId)) {
+                    throw new RuntimeException("Account is already working");
+                }
+            }
+        }
     }
 
     @Override
@@ -57,7 +65,6 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
 
     @Override
     public void execute(Long twitterAccountId) {
-        checkIfAccountRunning(twitterAccountId);
         workingAccounts.add(twitterAccountId);
         twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
         TwitterAccount twitterAccount = twitterAccountService.get(twitterAccountId);
@@ -467,18 +474,6 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
         return null;
     }
 
-    //    private String getRandomChatMessage(List<TwitterChatMessage> messages) {
-//        if (nonNull(messages)) {
-//            List<String> groupMessages = new ArrayList<>();
-//            for (TwitterChatMessage message : messages) {
-//                groupMessages.add(message.getText());
-//            }
-//            Random rand = new Random();
-//            return groupMessages.get(rand.nextInt(groupMessages.size()));
-//        } else {
-//            throw new RuntimeException("No available messages exist");
-//        }
-//    }
     private TwitterChatMessage getRandomChatMessage(List<TwitterChatMessage> messages) {
         if (nonNull(messages)) {
             Random rand = new Random();
@@ -537,16 +532,6 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
             int messagesDifference = messagesAfter - messagesBefore;
             int retweetDifference = retweetsAfter - retweetsBefore;
             twitterAccountService.updateStatisticDifference(twitterAccountId, friendsDifference, messagesDifference, retweetDifference, friendsAfter, retweetsAfter);
-        }
-    }
-
-    private void checkIfAccountRunning(Long accountId) {
-        if (!workingAccounts.isEmpty()) {
-            for (Long id : workingAccounts) {
-                if (Objects.equals(id, accountId)) {
-                    throw new RuntimeException("Account is already working");
-                }
-            }
         }
     }
 }

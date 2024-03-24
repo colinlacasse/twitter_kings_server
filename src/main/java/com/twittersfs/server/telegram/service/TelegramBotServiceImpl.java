@@ -1,11 +1,14 @@
 package com.twittersfs.server.telegram.service;
 
+import com.twittersfs.server.entities.PaymentEntity;
 import com.twittersfs.server.entities.TelegramUserEntity;
 import com.twittersfs.server.entities.UserEntity;
+import com.twittersfs.server.repos.PaymentEntityRepo;
 import com.twittersfs.server.repos.TelegramUserRepo;
 import com.twittersfs.server.repos.UserEntityRepo;
 import com.twittersfs.server.telegram.SpaceTraffBot;
 import com.twittersfs.server.telegram.markup.TelegramBotMarkups;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -21,15 +24,17 @@ import java.util.UUID;
 public class TelegramBotServiceImpl implements TelegramBotService {
     private final TelegramBotMarkups botMarkups;
     private final TelegramUserRepo telegramUserRepo;
+    private final PaymentEntityRepo paymentEntityRepo;
     private final UserEntityRepo userEntityRepo;
     @Value("${usdt.wallet}")
     private String wallet;
     @Value("${main.chat.id}")
     private String mainChatId;
 
-    public TelegramBotServiceImpl(TelegramBotMarkups botMarkups, TelegramUserRepo telegramUserRepo, UserEntityRepo userEntityRepo) {
+    public TelegramBotServiceImpl(TelegramBotMarkups botMarkups, TelegramUserRepo telegramUserRepo, PaymentEntityRepo paymentEntityRepo, UserEntityRepo userEntityRepo) {
         this.botMarkups = botMarkups;
         this.telegramUserRepo = telegramUserRepo;
+        this.paymentEntityRepo = paymentEntityRepo;
         this.userEntityRepo = userEntityRepo;
     }
 
@@ -39,6 +44,7 @@ public class TelegramBotServiceImpl implements TelegramBotService {
     }
 
     @Override
+    @Transactional
     public void saveLanguage(SpaceTraffBot bot, Long chatId, String language) throws TelegramApiException {
         saveTelegramUser(chatId, language);
         switch (language) {
@@ -49,6 +55,7 @@ public class TelegramBotServiceImpl implements TelegramBotService {
         }
     }
 
+    @Override
     public void sendBalanceTable(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
         TelegramUserEntity user = telegramUserRepo.findById(chatId).orElseThrow(() -> new RuntimeException("User with such Id does not exist"));
         String language = user.getLanguage();
@@ -60,6 +67,8 @@ public class TelegramBotServiceImpl implements TelegramBotService {
         }
     }
 
+    @Override
+    @Transactional
     public void setRefillAmount(SpaceTraffBot bot, Long chatId, String refillAmount) throws TelegramApiException {
         TelegramUserEntity user = telegramUserRepo.findById(chatId).orElseThrow(() -> new RuntimeException("User with such Id does not exist"));
         String language = user.getLanguage();
@@ -72,6 +81,8 @@ public class TelegramBotServiceImpl implements TelegramBotService {
         }
     }
 
+    @Override
+    @Transactional
     public void setEmail(SpaceTraffBot bot, Long chatId, String email) throws TelegramApiException {
         TelegramUserEntity user = telegramUserRepo.findById(chatId).orElseThrow(() -> new RuntimeException("User with such Id does not exist"));
         String language = user.getLanguage();
@@ -82,12 +93,17 @@ public class TelegramBotServiceImpl implements TelegramBotService {
         telegramUserRepo.updateTempIdByChatId(chatId, tempId);
         switch (language) {
             case "english" ->
-                    sendMessageWithMarkup(bot, chatId, "\uD83D\uDCB5" + " Payment amount " + paymentAmount + " $" + "\nSend money via USDT TRC20 and press PAYED button \n Wallet : " + wallet, botMarkups.payedButton(language));
+                    sendMessageWithMarkup(bot, chatId, "\uD83D\uDCB5" + " Payment amount " + paymentAmount + " $" + "\nSend money via USDT TRC20 and press PAYED button \nWallet : " + wallet, botMarkups.payedButton(language));
             default ->
-                    sendMessageWithMarkup(bot, chatId, "\uD83D\uDCB5" + " Сумма пополения " + paymentAmount + " $" + "\nСделайте перевод через USDT TRC20 и нажмите кнопку ОПЛАЧЕНО \n Кошелек : " + wallet, botMarkups.payedButton(language));
+                    sendMessageWithMarkup(bot, chatId, "\uD83D\uDCB5" + " Сумма пополения " + paymentAmount + " $" + "\nСделайте перевод через USDT TRC20 и нажмите кнопку ОПЛАЧЕНО \nКошелек : " + wallet, botMarkups.payedButton(language));
         }
     }
+    @Override
+    public void openSupport(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
+        sendMessage(bot, chatId , "https://t.me/spacetraffsupport");
+    }
 
+    @Override
     public void handlePayedButton(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
         TelegramUserEntity user = telegramUserRepo.findById(chatId).orElseThrow(() -> new RuntimeException("User with such Id does not exist"));
         Long adminChatId = Long.valueOf(mainChatId);
@@ -99,9 +115,10 @@ public class TelegramBotServiceImpl implements TelegramBotService {
             default ->
                     sendMessage(bot, chatId, "\uD83D\uDCB5" + " Баланс будет пополнен автоматически после рассмотрения платежа");
         }
-        sendMessage(bot, adminChatId, " User : " + user.getEmail() + "\n Refill : " + user.getRefillAmount() + "\n Time : " + now + "\n Temp ID : " + user.getTempId());
+        sendMessage(bot, adminChatId, "User : " + user.getEmail() + "\nRefill : " + user.getRefillAmount() + "\nTime : " + now + "\nTransaction ID : " + user.getTempId());
     }
-
+    @Override
+    @Transactional
     public void approve(SpaceTraffBot bot, Long chatId, String tempId) throws TelegramApiException {
         TelegramUserEntity tgUser = telegramUserRepo.findByTempId(tempId);
         String language = tgUser.getLanguage();
@@ -109,13 +126,16 @@ public class TelegramBotServiceImpl implements TelegramBotService {
         Float currentBalance = user.getBalance();
         Float newBalance = currentBalance + tgUser.getRefillAmount();
         userEntityRepo.updateBalanceById(user.getId(), newBalance);
+        paymentEntityRepo.save(toPaymentEntity(tgUser));
         switch (language) {
             case "english" ->
-                    sendMessage(bot, chatId, "\uD83D\uDCB5" + " Balance refilled on " + tgUser.getRefillAmount().toString() + " $");
+                    sendMessage(bot, tgUser.getChatId(), "\uD83D\uDCB5" + " Balance refilled on " + tgUser.getRefillAmount().toString() + " $");
             default ->
-                    sendMessage(bot, chatId, "\uD83D\uDCB5" + " Баланс пополнен на " + tgUser.getRefillAmount().toString() + " $");
+                    sendMessage(bot, tgUser.getChatId(), "\uD83D\uDCB5" + " Баланс пополнен на " + tgUser.getRefillAmount().toString() + " $");
         }
-
+        tgUser.setTempId(null);
+        tgUser.setRefillAmount(null);
+        telegramUserRepo.save(tgUser);
     }
 
     @Override
@@ -174,6 +194,14 @@ public class TelegramBotServiceImpl implements TelegramBotService {
             }
         }
         return "0";
+    }
+
+    private PaymentEntity toPaymentEntity(TelegramUserEntity user) {
+        return PaymentEntity.builder()
+                .amount(user.getRefillAmount().toString())
+                .userEmail(user.getEmail())
+                .transactionId(user.getTempId())
+                .build();
     }
 
 }

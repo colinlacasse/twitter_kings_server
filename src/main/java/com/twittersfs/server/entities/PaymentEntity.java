@@ -24,4 +24,5 @@ public class PaymentEntity {
     private String amount;
     @CreatedDate
     private LocalDateTime date;
+    private String transactionId;
 }

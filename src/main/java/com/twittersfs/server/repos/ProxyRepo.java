@@ -7,5 +7,4 @@ import java.util.Optional;
 
 public interface ProxyRepo extends JpaRepository<Proxy, Long> {
     Optional<Proxy> findByIpAndPort(String ip, String port);
-//    Proxy findByIpAndPort(String ip, String port);
 }

@@ -61,9 +61,9 @@ public class TelegramBotServiceImpl implements TelegramBotService {
         String language = user.getLanguage();
         switch (language) {
             case "english" ->
-                    sendMessageWithMarkup(bot, chatId, "\u270C" + " Choose amount of refill", botMarkups.balanceMarkup(language));
+                    sendMessageWithMarkup(bot, chatId, "\u2705" + " Choose amount of refill", botMarkups.balanceMarkup(language));
             default ->
-                    sendMessageWithMarkup(bot, chatId, "\u270C" + " Выберети сумму пополнения", botMarkups.balanceMarkup(language));
+                    sendMessageWithMarkup(bot, chatId, "\u2705" + " Выберети сумму пополнения", botMarkups.balanceMarkup(language));
         }
     }
 
@@ -75,9 +75,9 @@ public class TelegramBotServiceImpl implements TelegramBotService {
         telegramUserRepo.updateRefillAmountByChatId(chatId, Integer.valueOf(refillAmount));
         switch (language) {
             case "english" ->
-                    sendMessage(bot, chatId, "\u2705" + " Add user email on Space-Traff.site (NOT twiiter account email");
+                    sendMessage(bot, chatId, "\u2757" + " Add user email on Space-Traff.site (NOT twiiter account email");
             default ->
-                    sendMessage(bot, chatId, "\u2705" + " Введите имеил пользователя на сайте Space-Traff.site (НЕ твиттер аккаунта)");
+                    sendMessage(bot, chatId, "\u2757" + " Введите имеил пользователя на сайте Space-Traff.site (НЕ твиттер аккаунта)");
         }
     }
 
@@ -104,6 +104,11 @@ public class TelegramBotServiceImpl implements TelegramBotService {
     }
 
     @Override
+    public void openCommunity(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
+        sendMessage(bot, chatId , "https://t.me/spacetraffsoft");
+    }
+
+    @Override
     public void handlePayedButton(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
         TelegramUserEntity user = telegramUserRepo.findById(chatId).orElseThrow(() -> new RuntimeException("User with such Id does not exist"));
         Long adminChatId = Long.valueOf(mainChatId);
@@ -111,16 +116,17 @@ public class TelegramBotServiceImpl implements TelegramBotService {
         LocalDateTime now = LocalDateTime.now();
         switch (language) {
             case "english" ->
-                    sendMessage(bot, chatId, "\uD83D\uDCB5" + " Balance will be refilled automatically after we review your payment");
+                    sendMessage(bot, chatId, "\u261D" + " Balance will be refilled automatically after we review your payment");
             default ->
-                    sendMessage(bot, chatId, "\uD83D\uDCB5" + " Баланс будет пополнен автоматически после рассмотрения платежа");
+                    sendMessage(bot, chatId, "\u261D" + " Баланс будет пополнен автоматически после рассмотрения платежа");
         }
         sendMessage(bot, adminChatId, "User : " + user.getEmail() + "\nRefill : " + user.getRefillAmount() + "\nTime : " + now + "\nTransaction ID : " + user.getTempId());
     }
     @Override
     @Transactional
     public void approve(SpaceTraffBot bot, Long chatId, String tempId) throws TelegramApiException {
-        TelegramUserEntity tgUser = telegramUserRepo.findByTempId(tempId);
+        String transactionId = tempId.trim();
+        TelegramUserEntity tgUser = telegramUserRepo.findByTempId(transactionId);
         String language = tgUser.getLanguage();
         UserEntity user = userEntityRepo.findByEmail(tgUser.getEmail());
         Float currentBalance = user.getBalance();
@@ -129,10 +135,11 @@ public class TelegramBotServiceImpl implements TelegramBotService {
         paymentEntityRepo.save(toPaymentEntity(tgUser));
         switch (language) {
             case "english" ->
-                    sendMessage(bot, tgUser.getChatId(), "\uD83D\uDCB5" + " Balance refilled on " + tgUser.getRefillAmount().toString() + " $");
+                    sendMessage(bot, tgUser.getChatId(), "\uD83D\uDD25" + " Balance refilled on " + tgUser.getRefillAmount().toString() + " $");
             default ->
-                    sendMessage(bot, tgUser.getChatId(), "\uD83D\uDCB5" + " Баланс пополнен на " + tgUser.getRefillAmount().toString() + " $");
+                    sendMessage(bot, tgUser.getChatId(), "\uD83D\uDD25" + " Баланс пополнен на " + tgUser.getRefillAmount().toString() + " $");
         }
+        sendMessage(bot, chatId, "\uD83D\uDD25" + " Баланс пополнен на " + tgUser.getRefillAmount().toString() + " $" + " юзеру : " + tgUser.getEmail());
         tgUser.setTempId(null);
         tgUser.setRefillAmount(null);
         telegramUserRepo.save(tgUser);
@@ -177,7 +184,7 @@ public class TelegramBotServiceImpl implements TelegramBotService {
 
     private String calculatePayedAmount(Integer amount) {
         switch (amount) {
-            case 12 -> {
+            case 11 -> {
                 return "10";
             }
             case 35 -> {
@@ -186,10 +193,10 @@ public class TelegramBotServiceImpl implements TelegramBotService {
             case 60 -> {
                 return "50";
             }
-            case 120 -> {
+            case 180 -> {
                 return "100";
             }
-            case 200 -> {
+            case 250 -> {
                 return "150";
             }
         }

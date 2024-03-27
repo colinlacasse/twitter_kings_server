@@ -25,9 +25,10 @@ public class BotCallbackHandler {
             case "english", "russian" ->
                     telegramBotService.saveLanguage(bot, query.getMessage().getChatId(), callbackData);
             case "topup" -> telegramBotService.sendBalanceTable(bot, query.getMessage().getChatId());
-            case "12", "35", "60", "120", "200" ->
+            case "11", "35", "60", "180", "200" ->
                     telegramBotService.setRefillAmount(bot, query.getMessage().getChatId(), callbackData);
             case "payed" -> telegramBotService.handlePayedButton(bot, query.getMessage().getChatId());
+            case "sfsgroup" -> telegramBotService.openCommunity(bot, query.getMessage().getChatId());
             case "support" -> telegramBotService.openSupport(bot,query.getMessage().getChatId());
             case "cancel" ->
                     telegramBotService.cancel(bot, event.getCallbackQuery().getMessage().getChatId(), event.getCallbackQuery().getMessage().getMessageId());

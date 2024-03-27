@@ -1,6 +1,7 @@
 package com.twittersfs.server.services.twitter.readonly;
 
 import com.twittersfs.server.dtos.twitter.auth.response.InitLogin;
+import com.twittersfs.server.dtos.twitter.auth.unclock.XAccessPageResp;
 import com.twittersfs.server.dtos.twitter.group.XUserGroup;
 import com.twittersfs.server.dtos.twitter.media.XUserMedia;
 import com.twittersfs.server.dtos.twitter.message.XGif;
@@ -30,9 +31,9 @@ public interface TwitterApiRequests {
     void setDmSettings(TwitterAccount twitterAccount) throws IOException;
     XGif getGifMediaId(TwitterAccount twitterAccount, String gifUrl) throws IOException;
     XGifStatus checkGifStatus(TwitterAccount twitterAccount, String mediaId) throws IOException;
-    String getAccessPage(TwitterAccount twitterAccount) throws IOException;
-    String postToAccessPageWithToken(TwitterAccount twitterAccount, XCaptchaToken tokens, String capsolverToken) throws IOException;
-    String postToAccessPage(TwitterAccount twitterAccount, XCaptchaToken tokens, String jsInst) throws IOException;
+    XAccessPageResp getAccessPage(TwitterAccount twitterAccount) throws IOException;
+    String postToAccessPageWithToken(TwitterAccount twitterAccount, XCaptchaToken tokens, String capsolverToken, String cookies) throws IOException;
+    String postToAccessPage(TwitterAccount twitterAccount, XCaptchaToken tokens, String jsInst, String cookies) throws IOException;
     String getJsInst(TwitterAccount twitterAccount) throws IOException;
     String getGuestCreds(TwitterAccount twitterAccount) throws IOException;
     InitLogin initiateLogin(TwitterAccount twitterAccount, String guestId) throws IOException;

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.twittersfs.server.captcha.CaptchaResolver;
+import com.twittersfs.server.dtos.twitter.auth.unclock.XAccessPageResp;
 import com.twittersfs.server.entities.Proxy;
 import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.enums.TwitterAccountStatus;
@@ -56,71 +57,10 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
         this.subtasks = new ELoginSubtasks[]{
                 ELoginSubtasks.JS_INSTRUMENTATION,
                 ELoginSubtasks.ENTER_USER_IDENTIFIER,
-//                ELoginSubtasks.ENTER_ALTERNATE_USER_IDENTIFIER,
                 ELoginSubtasks.ENTER_PASSWORD,
                 ELoginSubtasks.ACCOUNT_DUPLICATION_CHECK
         };
     }
-
-//    public void newLogin(TwitterAccount twitterAccount) throws IOException {
-//        String guestId = apiRequests.getGuestCreds(twitterAccount);
-//        InitLogin initLogin = apiRequests.initiateLogin(twitterAccount, guestId);
-//        String flowToken = initLogin.getFlowToken();
-//        String cookies = initLogin.getCookies();
-//        List<ELoginSubtasks> subtasks = getSubtasks();
-//        for (ELoginSubtasks subtask : subtasks) {
-//            log.info("SUB : " + subtask.getValue());
-//            LoginSubtaskPayload request = getSubtaskPayload(subtask, flowToken, twitterAccount);
-//            String[] setCookieHeaders;
-//            String jsonResponse;
-//            try (Response response = apiRequests.postLoginData(twitterAccount, guestId, request, cookies)) {
-//                setCookieHeaders = response.headers("Set-Cookie").toArray(new String[0]);
-//                jsonResponse = response.body().string();
-//                log.info("JS RESP : " + jsonResponse);
-//            }
-//            cookies = String.join(";", setCookieHeaders);
-//            Subtask sbtask = mapper.readValue(jsonResponse, Subtask.class);
-//            flowToken = sbtask.getFlowToken();
-//            if (subtask.equals(ELoginSubtasks.ACCOUNT_DUPLICATION_CHECK)) {
-////                twitterAccountRepo.updateCookie(twitterAccount.getId(), cookies);
-//                log.info("Cookies : " + cookies);
-//            }
-//        }
-//    }
-
-//    private List<ELoginSubtasks> getSubtasks() {
-//        List<ELoginSubtasks> subtasks = new ArrayList<>();
-//        subtasks.add(ELoginSubtasks.JS_INSTRUMENTATION);
-//        subtasks.add(ELoginSubtasks.ENTER_USER_IDENTIFIER);
-//        subtasks.add(ELoginSubtasks.ENTER_PASSWORD);
-//        subtasks.add(ELoginSubtasks.ACCOUNT_DUPLICATION_CHECK);
-//        return subtasks;
-//    }
-
-//        private LoginSubtaskPayload getSubtaskPayload(
-//            ELoginSubtasks subtask,
-//            String flowToken,
-//            AccountCredential accCred
-//    ) {
-//        return switch (subtask) {
-//            case ENTER_USER_IDENTIFIER -> new LoginSubtaskPayload(flowToken, subtask, accCred.getEmail());
-//            case ENTER_ALTERNATE_USER_IDENTIFIER -> new LoginSubtaskPayload(flowToken, subtask, accCred.getUsername());
-//            case ENTER_PASSWORD -> new LoginSubtaskPayload(flowToken, subtask, accCred.getPassword());
-//            default -> new LoginSubtaskPayload(flowToken, subtask);
-//        };
-//    }
-//    private XLoginRequest getSubtaskPayload(
-//            ELoginSubtasks subtask,
-//            String flowToken,
-//            TwitterAccount twitterAccount
-//    ) {
-//        return switch (subtask) {
-//            case JS_INSTRUMENTATION -> createJsInstrPayload(flowToken, subtask.getValue());
-//            case ENTER_USER_IDENTIFIER -> createUserIdentifierPayload(flowToken, twitterAccount.getUsername(), subtask.getValue());
-//            case ENTER_PASSWORD -> createPasswordPayload(flowToken, twitterAccount.getPassword(), subtask.getValue());
-//            default -> createAccDuplicationCheckrPayload(flowToken, subtask.getValue());
-//        };
-//    }
 
     private LoginSubtaskPayload getSubtaskPayload(
             ELoginSubtasks subtask,
@@ -138,13 +78,8 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
     public void login(TwitterAccount twitterAccount) {
         twitterAccountRepo.updateCsrfToken(twitterAccount.getId(), null);
         try {
-            for (int i = 0; i < 5; i++) {
-                getUserCredential(twitterAccount);
-                TwitterAccount account = twitterAccountRepo.findById(twitterAccount.getId()).orElseThrow(() -> new RuntimeException("No acc"));
-                if (nonNull(account.getCsrfToken())) {
-                    break;
-                }
-            }
+            this.cred = new AuthCredential();
+            getUserCredential(twitterAccount);
         } catch (Exception e) {
             log.error("Error during logging in " + e + " : " + twitterAccount.getUsername());
             twitterAccountRepo.updateStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
@@ -154,36 +89,39 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
     @Override
     public void unlock(TwitterAccount twitterAccount) {
         try {
-            String html = apiRequests.getAccessPage(twitterAccount);
-            XCaptchaToken tokens = extractTokensFromAccessHtmlPage(html);
+            XAccessPageResp accessPage = apiRequests.getAccessPage(twitterAccount);
+            String cookies = accessPage.getCookies();
+            XCaptchaToken tokens = extractTokensFromAccessHtmlPage(accessPage.getHtml());
             String jsInst = apiRequests.getJsInst(twitterAccount);
-            String resp = apiRequests.postToAccessPage(twitterAccount, tokens, jsInst);
+            String resp = apiRequests.postToAccessPage(twitterAccount, tokens, jsInst, cookies);
             tokens = extractTokensFromAccessHtmlPage(resp);
-            String capsolverToken = captchaResolver.solveCaptcha();
-            String tokenResp = apiRequests.postToAccessPageWithToken(twitterAccount, tokens, capsolverToken);
-            tokens = extractTokensFromAccessHtmlPage(tokenResp);
-            capsolverToken = captchaResolver.solveCaptcha();
-            tokenResp = apiRequests.postToAccessPageWithToken(twitterAccount, tokens, capsolverToken);
-            tokens = extractTokensFromAccessHtmlPage(tokenResp);
+            String capsolverToken;
+            String tokenResp;
+            for (int i = 0; i < 2; i++) {
+                try {
+                    capsolverToken = captchaResolver.solveCaptcha();
+                    tokenResp = apiRequests.postToAccessPageWithToken(twitterAccount, tokens, capsolverToken, cookies);
+                    tokens = extractTokensFromAccessHtmlPage(tokenResp);
+                } catch (Exception e) {
+//                    log.error("Getting captcha token error : " + e + " account : " + twitterAccount.getUsername());
+                }
+            }
             jsInst = apiRequests.getJsInst(twitterAccount);
-            resp = apiRequests.postToAccessPage(twitterAccount, tokens, jsInst);
+            resp = apiRequests.postToAccessPage(twitterAccount, tokens, jsInst, cookies);
         } catch (Exception e) {
-            log.error("UNLOCK EX : " + e);
+            log.error("Solving captcha error : " + e);
         }
     }
 
     private void getUserCredential(TwitterAccount twitterAccount) throws IOException {
         if (nonNull(twitterAccount.getProxy())) {
-            AccountCredential accCred = toAccountCredential(twitterAccount);
             this.cred = getGuestCredential(twitterAccount.getProxy());
             initiateLogin(twitterAccount.getProxy());
-
             for (int i = 0; i < subtasks.length; i++) {
                 LoginSubtaskPayload payload = getSubtaskPayload(subtasks[i], flowToken, twitterAccount);
                 OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
                 Response response = executeLoginSubtask(payload, client);
-                String jsonResponse = response.body().string();
-                handleLoginSubtaskResponse(response, i, twitterAccount, jsonResponse);
+                handleLoginSubtaskResponse(response, i, twitterAccount);
             }
             twitterAccountRepo.updateCsrfToken(twitterAccount.getId(), this.cred.getCsrfToken());
         } else {
@@ -193,22 +131,21 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
     }
 
     private void initiateLogin(Proxy proxy) throws IOException {
-//        ObjectMapper mapper = new ObjectMapper()
-//                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-//                .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-
         OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
+//        log.info("INIT");
         Request request = new Request.Builder()
                 .url(ELoginUrls.INITIATE_LOGIN.getValue())
-                .post(RequestBody.create(null, new byte[0])) // assuming an empty request body
-                .headers(this.cred.toHeader().getHeaders()) // assuming toHeader() returns a Map<String, String>
+                .post(RequestBody.create(null, new byte[0]))
+                .headers(this.cred.toHeader().getHeaders())
                 .build();
 
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 throw new IOException("Unexpected response code: " + response);
             }
-            this.flowToken = mapper.readValue(response.body().string(), FlowToken.class).getFlowToken();
+            String jsonResponse = response.body().string();
+            this.flowToken = mapper.readValue(jsonResponse, FlowToken.class).getFlowToken();
+//            log.info("INIT Log : " + jsonResponse);
             String[] setCookieHeaders = response.headers("Set-Cookie").toArray(new String[0]);
             String cookies = String.join(";", setCookieHeaders);
             this.cred.setCookies(cookies);
@@ -216,9 +153,6 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
     }
 
     private AuthCredential getGuestCredential(Proxy proxy) throws IOException {
-//        ObjectMapper mapper = new ObjectMapper()
-//                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
         OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
         AuthCredential cred = new AuthCredential();
 
@@ -233,6 +167,7 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
                 throw new IOException("Unexpected response code: " + response);
             }
             String jsonResponse = response.body().string();
+//            log.info("GC : " + jsonResponse);
             JsonNode jsonNode = mapper.readTree(jsonResponse);
             String guestToken = jsonNode.get("guest_token").asText();
             cred.setGuestToken(guestToken);
@@ -242,9 +177,6 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
     }
 
     private Response executeLoginSubtask(LoginSubtaskPayload payload, OkHttpClient client) throws IOException {
-//        ObjectMapper mapper = new ObjectMapper();
-//        mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-
         RequestBody requestBody = RequestBody.create(
                 MediaType.parse("application/json"), mapper.writeValueAsString(payload));
 
@@ -257,14 +189,12 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
         return client.newCall(request).execute();
     }
 
-    private void handleLoginSubtaskResponse(Response response, int i, TwitterAccount account, String jsonResponse) throws IOException {
-//        ObjectMapper mapper = new ObjectMapper()
-//                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private void handleLoginSubtaskResponse(Response response, int i, TwitterAccount account) throws IOException {
         String[] setCookieHeaders = response.headers("Set-Cookie").toArray(new String[0]);
-
-        for (String cookie : setCookieHeaders) {
-        }
+        String jsonResponse = response.body().string();
         String cookies = String.join(";", setCookieHeaders);
+//        log.info("ITER : " + i + " Cookies : " + cookies);
+//        log.info("ITER : " + i + " RESP : " + jsonResponse);
         Subtask subtask = mapper.readValue(jsonResponse, Subtask.class);
         if (subtasks[i].equals(ELoginSubtasks.ENTER_USER_IDENTIFIER) &&
                 subtask.getSubtasks().stream().map(SubtaskId::getSubtaskId).toList().contains(ELoginSubtasks.ENTER_PASSWORD.getValue())) {
@@ -282,25 +212,21 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
     private XCaptchaToken extractTokensFromAccessHtmlPage(String html) {
         Pattern pattern = Pattern.compile("name=\"authenticity_token\" value=\"([^\"]+)\"|name=\"assignment_token\" value=\"([^\"]+)\"");
         Matcher matcher = pattern.matcher(html);
-        if (matcher.find()) {
-            String authenticityToken = Objects.requireNonNull(matcher.group(0));
-            log.info("authenticityToken : " + authenticityToken);
-            String assignmentToken = Objects.requireNonNull(matcher.group(1));
-            log.info("assignmentToken : " + assignmentToken);
-            return XCaptchaToken.builder()
-                    .assignmentToken(assignmentToken)
-                    .authenticityToken(authenticityToken)
-                    .build();
-        } else {
-            throw new RuntimeException("Tokens from html page are not extracted");
+        String authenticityToken = "";
+        String assignmentToken = "";
+        while (matcher.find()) {
+            if (matcher.group(1) != null) {
+                authenticityToken = matcher.group(1);
+//                log.info("AU : " + authenticityToken);
+            }
+            if (matcher.group(2) != null) {
+                assignmentToken = matcher.group(2);
+//                log.info("AS : " + assignmentToken);
+            }
         }
-    }
-
-    private AccountCredential toAccountCredential(TwitterAccount entity) {
-        return AccountCredential.builder()
-                .email(entity.getEmail())
-                .username(entity.getUsername())
-                .password(entity.getPassword())
+        return XCaptchaToken.builder()
+                .assignmentToken(assignmentToken)
+                .authenticityToken(authenticityToken)
                 .build();
     }
 }

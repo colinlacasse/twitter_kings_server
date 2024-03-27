@@ -56,6 +56,7 @@ public class ScheduleUpdates {
 //                try {
 //                    authService.login(account);
 //                    twitterAppService.run(account.getId());
+//                    log.info("RUNNED : " + twitterAccount.getCsrfToken());
 //                } catch (Exception e) {
 //                    log.error("Error while restarting : " + e + " account : " + account.getUsername());
 //                }

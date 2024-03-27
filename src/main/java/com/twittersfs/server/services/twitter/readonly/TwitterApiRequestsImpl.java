@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.twittersfs.server.dtos.twitter.auth.response.InitLogin;
+import com.twittersfs.server.dtos.twitter.auth.unclock.XAccessPageResp;
 import com.twittersfs.server.dtos.twitter.error.XApiError;
 import com.twittersfs.server.dtos.twitter.group.XUserGroup;
 import com.twittersfs.server.dtos.twitter.media.XUserMedia;
@@ -314,7 +315,7 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
                 throw new IOException("Get guest creds failed : " + response);
             }
             JsonNode jsonNode = mapper.readTree(jsonResponse);
-            log.info("GUEST TOKEN : " + jsonNode.get("guest_token").asText());
+//            log.info("GUEST TOKEN : " + jsonNode.get("guest_token").asText());
             return jsonNode.get("guest_token").asText();
         }
     }
@@ -342,7 +343,7 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
             InitLogin initLogin = new InitLogin();
             initLogin.setFlowToken(flowToken);
             initLogin.setCookies(cookies);
-            log.info("FLOW TOKEN : " + flowToken);
+//            log.info("FLOW TOKEN : " + flowToken);
             return initLogin;
         }
     }
@@ -374,7 +375,7 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
         }
     }
 
-    public String getAccessPage(TwitterAccount twitterAccount) throws IOException {
+    public XAccessPageResp getAccessPage(TwitterAccount twitterAccount) throws IOException {
         OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -383,20 +384,27 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
 //        log.info("CSRF : " + twitterAccount.getCsrfToken());
         try (Response response = client.newCall(buildRequestWithUserAgent(url, twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken())).execute()) {
             String jsonResponse = response.body().string();
-            log.info("GET ACCESS RESP : " + jsonResponse);
+            String[] setCookieHeaders = response.headers("Set-Cookie").toArray(new String[0]);
+            String cookies = String.join(";", setCookieHeaders);
+//            log.info("COOKIES : " + cookies);
+//            log.info("GET ACCESS RESP : " + jsonResponse);
             if (!response.isSuccessful()) {
                 handleErrorResponse(twitterAccount.getUsername(), jsonResponse, mapper);
             }
-            return jsonResponse;
+            return XAccessPageResp.builder()
+                    .cookies(cookies)
+                    .html(jsonResponse)
+                    .build();
         }
     }
 
-    public String postToAccessPage(TwitterAccount twitterAccount, XCaptchaToken tokens, String jsInst) throws IOException {
+    public String postToAccessPage(TwitterAccount twitterAccount, XCaptchaToken tokens, String jsInst , String cookies) throws IOException {
         OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 //                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
-
+//        log.info("Token AU : " + tokens.getAuthenticityToken());
+//        log.info("Token AS : " + tokens.getAssignmentToken());
         RequestBody formBody = new FormBody.Builder()
                 .add("authenticity_token", tokens.getAuthenticityToken())
                 .add("assignment_token", tokens.getAssignmentToken())
@@ -405,15 +413,16 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
                 .add("ui_metrics", jsInst)
                 .build();
 
-        return buildAccessPageRequest(client, formBody);
+        return buildAccessPageRequest(client, formBody, twitterAccount, cookies);
     }
 
-    public String postToAccessPageWithToken(TwitterAccount twitterAccount, XCaptchaToken tokens, String capsolverToken) throws IOException {
+    public String postToAccessPageWithToken(TwitterAccount twitterAccount, XCaptchaToken tokens, String capsolverToken, String cookies) throws IOException {
         OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 //                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
-
+//        log.info("Token AU : " + tokens.getAuthenticityToken());
+//        log.info("Token AS : " + tokens.getAssignmentToken());
         RequestBody formBody = new FormBody.Builder()
                 .add("authenticity_token", tokens.getAuthenticityToken())
                 .add("assignment_token", tokens.getAssignmentToken())
@@ -423,22 +432,30 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
                 .add("language_code", "en")
                 .build();
 
-        return buildAccessPageRequest(client, formBody);
+        return buildAccessPageRequest(client, formBody, twitterAccount, cookies);
     }
 
     @NotNull
-    private String buildAccessPageRequest(OkHttpClient client, RequestBody formBody) throws IOException {
+    private String buildAccessPageRequest(OkHttpClient client, RequestBody formBody, TwitterAccount twitterAccount, String cookies) throws IOException {
+//        log.info("COOKES : " + cookies);
         Request request = new Request.Builder()
-                .url("https://twitter.com/account/access" + "?lang=en")
-                .header("Host", "twitter.com")
-                .header("Origin", "https://twitter.com")
-                .header("Referer", "https://twitter.com/account/access")
+                .url("https://twitter.com/account/access")
+                .addHeader("Connection", "keep-alive")
+                .addHeader("Host", "twitter.com")
+                .addHeader("cookie", cookies + "; " + twitterAccount.getCookie())
+                .addHeader("cache-control", "max-age=0")
+                .addHeader("content-type", "application/x-www-form-urlencoded")
+                .addHeader("origin", "https://twitter.com")
+                .addHeader("referer", "https://twitter.com/account/access")
+                .addHeader("authority", "twitter.com")
+                .addHeader("accept", "*/*")
+                .addHeader("x-csrf-token", twitterAccount.getCsrfToken())
                 .post(formBody)
                 .build();
 
         try (Response response = client.newCall(request).execute()) {
             String resp = response.body().string();
-            log.info("POST TO ACCESS RESP  : " + resp);
+//            log.info("POST TO ACCESS RESP  : " + resp);
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
             return resp;
         }
@@ -454,12 +471,13 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
             log.info("JS INST RESP : " + resp);
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
 
-            Pattern pattern = Pattern.compile("return\\s*\\{.*?\\};", Pattern.DOTALL);
+//            Pattern pattern = Pattern.compile("return\\s*\\{.*?\\};", Pattern.DOTALL);
+            Pattern pattern = Pattern.compile("return\\s*\\{(.*?)};", Pattern.DOTALL);
             Matcher matcher = pattern.matcher(resp);
 
             if (matcher.find()) {
-                log.info("MATCHER : " + matcher.group(0));
-                return matcher.group(0);
+//                log.info("MATCHER : " + matcher.group(1));
+                return matcher.group(1);
             } else {
                 throw new IOException("No match found for pattern in JS script");
             }

@@ -5,10 +5,7 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Component
 @Slf4j
@@ -51,18 +48,18 @@ public class TelegramBotMarkups {
     }
 
     public InlineKeyboardMarkup balanceMarkup(String language) {
-        Map<String, String> englishKeyboard = new HashMap<>();
-        englishKeyboard.put("12", "Pay 10 \uD83D\uDCB8 -> Get 12 \uD83D\uDCB8");
+        Map<String, String> englishKeyboard = new LinkedHashMap<>();
+        englishKeyboard.put("11", "Pay 10 \uD83D\uDCB8 -> Get 10 \uD83D\uDCB8");
         englishKeyboard.put("35", "Pay 30 \uD83D\uDCB8 -> Get 35 \uD83D\uDCB8");
         englishKeyboard.put("60", "Pay 50 \uD83D\uDCB8 -> Get 60 \uD83D\uDCB8");
-        englishKeyboard.put("120", "Pay 100 \uD83D\uDCB8 -> Get 120 \uD83D\uDCB8");
-        englishKeyboard.put("200", "Pay 150 \uD83D\uDCB8 -> Get 200 \uD83D\uDCB8");
-        Map<String, String> russianKeyboard = new HashMap<>();
-        russianKeyboard.put("12", "Платишь 10 \uD83D\uDCB8 -> Получаешь 12 \uD83D\uDCB8");
+        englishKeyboard.put("180", "Pay 150 \uD83D\uDCB8 -> Get 180 \uD83D\uDCB8");
+        englishKeyboard.put("250", "Pay 200 \uD83D\uDCB8 -> Get 250 \uD83D\uDCB8");
+        Map<String, String> russianKeyboard = new LinkedHashMap<>();
+        russianKeyboard.put("11", "Платишь 10 \uD83D\uDCB8 -> Получаешь 10 \uD83D\uDCB8");
         russianKeyboard.put("35", "Платишь 30 \uD83D\uDCB8 -> Получаешь 35 \uD83D\uDCB8");
         russianKeyboard.put("60", "Платишь 50 \uD83D\uDCB8 -> Получаешь 60 \uD83D\uDCB8");
-        russianKeyboard.put("120", "Платишь 100 \uD83D\uDCB8 -> Получаешь 120 \uD83D\uDCB8");
-        russianKeyboard.put("200", "Платишь 150 \uD83D\uDCB8 -> Получаешь 200 \uD83D\uDCB8");
+        russianKeyboard.put("180", "Платишь 150 \uD83D\uDCB8 -> Получаешь 180 \uD83D\uDCB8");
+        russianKeyboard.put("250", "Платишь 200 \uD83D\uDCB8 -> Получаешь 250 \uD83D\uDCB8");
         switch (language) {
             case "english" -> {
                 return generateKeyBoardMarkup(englishKeyboard);

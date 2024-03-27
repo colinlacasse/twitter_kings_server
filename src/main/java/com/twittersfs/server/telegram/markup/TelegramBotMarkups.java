@@ -31,11 +31,13 @@ public class TelegramBotMarkups {
     public InlineKeyboardMarkup homeKeyboard(String language) {
         Map<String, String> englishKeyboard = new HashMap<>();
         englishKeyboard.put("topup", "\uD83D\uDCB0 Top up Balance");
-        englishKeyboard.put("sfsgroup", "\uD83D\uDCAC Soft Updates");
+        englishKeyboard.put("sfsgroup", "\u231B Soft Updates");
+        englishKeyboard.put("community", "\uD83D\uDCAC Chat");
         englishKeyboard.put("support", "\uD83D\uDDFF Online Support");
         Map<String, String> russianKeyboard = new HashMap<>();
         russianKeyboard.put("topup", "\uD83D\uDCB0 Пополнить баланс");
-        russianKeyboard.put("sfsgroup", "\uD83D\uDCAC Апдейты по софту");
+        russianKeyboard.put("sfsgroup", "\u231B Апдейты по софту");
+        russianKeyboard.put("community", "\uD83D\uDCAC Чат");
         russianKeyboard.put("support", "\uD83D\uDDFF Онлайн поддержка");
         switch (language) {
             case "english" -> {
@@ -49,17 +51,15 @@ public class TelegramBotMarkups {
 
     public InlineKeyboardMarkup balanceMarkup(String language) {
         Map<String, String> englishKeyboard = new LinkedHashMap<>();
-        englishKeyboard.put("11", "Pay 10 \uD83D\uDCB8 -> Get 10 \uD83D\uDCB8");
-        englishKeyboard.put("35", "Pay 30 \uD83D\uDCB8 -> Get 35 \uD83D\uDCB8");
-        englishKeyboard.put("60", "Pay 50 \uD83D\uDCB8 -> Get 60 \uD83D\uDCB8");
-        englishKeyboard.put("180", "Pay 150 \uD83D\uDCB8 -> Get 180 \uD83D\uDCB8");
-        englishKeyboard.put("250", "Pay 200 \uD83D\uDCB8 -> Get 250 \uD83D\uDCB8");
+        englishKeyboard.put("29", "\uD83D\uDCB8 1 Profile : $29");
+        englishKeyboard.put("116", "\uD83D\uDCB8 3 Profiles + 1 free: $87");
+        englishKeyboard.put("203", "\uD83D\uDCB8 5 Profiles + 2 free: $145");
+        englishKeyboard.put("435", "\uD83D\uDCB8 10 Profiles + 5 free: $290");
         Map<String, String> russianKeyboard = new LinkedHashMap<>();
-        russianKeyboard.put("11", "Платишь 10 \uD83D\uDCB8 -> Получаешь 10 \uD83D\uDCB8");
-        russianKeyboard.put("35", "Платишь 30 \uD83D\uDCB8 -> Получаешь 35 \uD83D\uDCB8");
-        russianKeyboard.put("60", "Платишь 50 \uD83D\uDCB8 -> Получаешь 60 \uD83D\uDCB8");
-        russianKeyboard.put("180", "Платишь 150 \uD83D\uDCB8 -> Получаешь 180 \uD83D\uDCB8");
-        russianKeyboard.put("250", "Платишь 200 \uD83D\uDCB8 -> Получаешь 250 \uD83D\uDCB8");
+        russianKeyboard.put("29", "\uD83D\uDCB8 1 Профиль : $29");
+        russianKeyboard.put("116", "\uD83D\uDCB8 3 Профиля + 1 бесплатно: $87");
+        russianKeyboard.put("203", "\uD83D\uDCB8 5 Профилей + 2 бесплатно: $145 ");
+        russianKeyboard.put("435", "\uD83D\uDCB8 10 Профилей + 5 бесплатно: $290");
         switch (language) {
             case "english" -> {
                 return generateKeyBoardMarkup(englishKeyboard);

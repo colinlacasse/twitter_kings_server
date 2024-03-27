@@ -104,8 +104,13 @@ public class TelegramBotServiceImpl implements TelegramBotService {
     }
 
     @Override
-    public void openCommunity(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
+    public void openNewsGroup(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
         sendMessage(bot, chatId , "https://t.me/spacetraffsoft");
+    }
+
+    @Override
+    public void openChat(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
+        sendMessage(bot, chatId , "https://t.me/+6c3OIX0oJnszNjFi");
     }
 
     @Override
@@ -184,20 +189,17 @@ public class TelegramBotServiceImpl implements TelegramBotService {
 
     private String calculatePayedAmount(Integer amount) {
         switch (amount) {
-            case 11 -> {
-                return "10";
+            case 29 -> {
+                return "29";
             }
-            case 35 -> {
-                return "30";
+            case 116 -> {
+                return "87";
             }
-            case 60 -> {
-                return "50";
+            case 203 -> {
+                return "145";
             }
-            case 180 -> {
-                return "100";
-            }
-            case 250 -> {
-                return "150";
+            case 435 -> {
+                return "290";
             }
         }
         return "0";

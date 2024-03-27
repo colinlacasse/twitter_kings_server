@@ -31,38 +31,51 @@ public class ScheduleUpdates {
         this.authService = authService;
         this.appGroupService = appGroupService;
     }
-//    @PostConstruct
-//    public void init() {
-//        firstRun = true;
-//    }
-//
-//    @Scheduled(fixedRate = 10800000)
-//    public void updateCookiesAndRestart() {
-//        if (firstRun) {
-//            try {
-//                Thread.sleep(300000);
-//            } catch (InterruptedException e) {
-//                Thread.currentThread().interrupt();
-//            }
-//            firstRun = false;
-//        }
-//
-//        log.info("!!!!!!!!!!!!!!!!!!Updating cookies started!!!!!!!!!!!!!!!!!!!!");
-//        List<TwitterAccount> all = twitterAccountRepo.findAll();
-//        for (TwitterAccount account : all) {
-//            TwitterAccount twitterAccount = twitterAccountRepo.findById(account.getId()).orElseThrow(()-> new RuntimeException("No account with such id"));
-//            TwitterAccountStatus status = twitterAccount.getStatus();
-//            if (status.equals(TwitterAccountStatus.INVALID_COOKIES) || status.equals(TwitterAccountStatus.UNEXPECTED_ERROR)) {
-//                try {
-//                    authService.login(account);
-//                    twitterAppService.run(account.getId());
-//                    log.info("RUNNED : " + twitterAccount.getCsrfToken());
-//                } catch (Exception e) {
-//                    log.error("Error while restarting : " + e + " account : " + account.getUsername());
-//                }
-//            }
-//        }
-//    }
+    @PostConstruct
+    public void init() {
+        firstRun = true;
+    }
+
+    @Scheduled(fixedRate = 10800000)
+    public void updateCookiesAndRestart() {
+        if (firstRun) {
+            try {
+                Thread.sleep(300000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            firstRun = false;
+        }
+
+        log.info("!!!!!!!!!!!!!!!!!!Updating cookies started!!!!!!!!!!!!!!!!!!!!");
+        List<TwitterAccount> all = twitterAccountRepo.findAll();
+        for (TwitterAccount account : all) {
+            TwitterAccount twitterAccount = twitterAccountRepo.findById(account.getId()).orElseThrow(()-> new RuntimeException("No account with such id"));
+            TwitterAccountStatus status = twitterAccount.getStatus();
+            if (status.equals(TwitterAccountStatus.INVALID_COOKIES) || status.equals(TwitterAccountStatus.UNEXPECTED_ERROR)) {
+                try {
+                    authService.login(account);
+                    twitterAppService.run(account.getId());
+                } catch (Exception e) {
+                    log.error("Error while restarting : " + e + " account : " + account.getUsername());
+                }
+            }
+        }
+        all = twitterAccountRepo.findAll();
+        for (TwitterAccount account : all){
+            TwitterAccount twitterAccount = twitterAccountRepo.findById(account.getId()).orElseThrow(()-> new RuntimeException("No account with such id"));
+            TwitterAccountStatus status = twitterAccount.getStatus();
+            if (status.equals(TwitterAccountStatus.LOCKED)) {
+                try {
+                    authService.unlock(account);
+                    twitterAppService.run(account.getId());
+                } catch (Exception e) {
+                    log.error("Error while unlocking : " + e + " account : " + account.getUsername());
+                }
+            }
+        }
+
+    }
 
 //    @Scheduled(fixedRate = 86400000)
 //    public void updatedGroups() {

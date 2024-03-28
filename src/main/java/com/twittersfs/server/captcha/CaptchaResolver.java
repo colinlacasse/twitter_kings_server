@@ -29,7 +29,6 @@ public class CaptchaResolver {
         while (counter < 3) {
             TokenResponse tokenResponse = receiveToken(response.getTaskId());
             if (tokenResponse != null && tokenResponse.getStatus().equals("ready")) {
-                log.info(tokenResponse.getSolution().getToken());
                 return tokenResponse.getSolution().getToken();
             }
             counter++;

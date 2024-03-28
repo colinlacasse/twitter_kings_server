@@ -31,12 +31,13 @@ public class ScheduleUpdates {
         this.authService = authService;
         this.appGroupService = appGroupService;
     }
+
     @PostConstruct
     public void init() {
         firstRun = true;
     }
 
-    @Scheduled(fixedRate = 10800000)
+    @Scheduled(fixedRate = 14400000)
     public void updateCookiesAndRestart() {
         if (firstRun) {
             try {
@@ -50,7 +51,7 @@ public class ScheduleUpdates {
         log.info("!!!!!!!!!!!!!!!!!!Updating cookies started!!!!!!!!!!!!!!!!!!!!");
         List<TwitterAccount> all = twitterAccountRepo.findAll();
         for (TwitterAccount account : all) {
-            TwitterAccount twitterAccount = twitterAccountRepo.findById(account.getId()).orElseThrow(()-> new RuntimeException("No account with such id"));
+            TwitterAccount twitterAccount = twitterAccountRepo.findById(account.getId()).orElseThrow(() -> new RuntimeException("No account with such id"));
             TwitterAccountStatus status = twitterAccount.getStatus();
             if (status.equals(TwitterAccountStatus.INVALID_COOKIES) || status.equals(TwitterAccountStatus.UNEXPECTED_ERROR)) {
                 try {
@@ -62,15 +63,19 @@ public class ScheduleUpdates {
             }
         }
         all = twitterAccountRepo.findAll();
-        for (TwitterAccount account : all){
-            TwitterAccount twitterAccount = twitterAccountRepo.findById(account.getId()).orElseThrow(()-> new RuntimeException("No account with such id"));
+        for (TwitterAccount account : all) {
+            TwitterAccount twitterAccount = twitterAccountRepo.findById(account.getId()).orElseThrow(() -> new RuntimeException("No account with such id"));
             TwitterAccountStatus status = twitterAccount.getStatus();
             if (status.equals(TwitterAccountStatus.LOCKED)) {
                 try {
-                    authService.unlock(account);
+                    try {
+                        authService.unlock(account);
+                    } catch (Exception e) {
+                        log.error("Error while unlocking : " + e + " account : " + account.getUsername());
+                    }
                     twitterAppService.run(account.getId());
                 } catch (Exception e) {
-                    log.error("Error while unlocking : " + e + " account : " + account.getUsername());
+                    log.error("Error while starting after unlock : " + e + " account : " + account.getUsername());
                 }
             }
         }

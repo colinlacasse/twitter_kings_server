@@ -468,7 +468,7 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
                 .build();
         try (Response response = client.newCall(request).execute()) {
             String resp = response.body().string();
-            log.info("JS INST RESP : " + resp);
+//            log.info("JS INST RESP : " + resp);
             if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
 
 //            Pattern pattern = Pattern.compile("return\\s*\\{.*?\\};", Pattern.DOTALL);

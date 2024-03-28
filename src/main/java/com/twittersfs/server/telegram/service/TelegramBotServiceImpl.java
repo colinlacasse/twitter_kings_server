@@ -114,6 +114,11 @@ public class TelegramBotServiceImpl implements TelegramBotService {
     }
 
     @Override
+    public void openEnChat(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
+        sendMessage(bot, chatId , "https://t.me/+zNz03ursvYtjZmUy");
+    }
+
+    @Override
     public void handlePayedButton(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
         TelegramUserEntity user = telegramUserRepo.findById(chatId).orElseThrow(() -> new RuntimeException("User with such Id does not exist"));
         Long adminChatId = Long.valueOf(mainChatId);
@@ -189,16 +194,16 @@ public class TelegramBotServiceImpl implements TelegramBotService {
 
     private String calculatePayedAmount(Integer amount) {
         switch (amount) {
-            case 29 -> {
+            case 30 -> {
                 return "29";
             }
-            case 116 -> {
+            case 117 -> {
                 return "87";
             }
-            case 203 -> {
+            case 204 -> {
                 return "145";
             }
-            case 435 -> {
+            case 436 -> {
                 return "290";
             }
         }

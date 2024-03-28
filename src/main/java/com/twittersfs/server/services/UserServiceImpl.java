@@ -124,7 +124,7 @@ public class UserServiceImpl implements UserService {
     private UserEntity fromUserRegisterDto(UserRegister dto) {
         String email = dto.getEmail().toLowerCase().trim();
         return UserEntity.builder()
-                .balance(0F)
+                .balance(5F)
                 .email(email)
                 .password(passwordEncoder.encode(dto.getPassword()))
                 .role(Role.USER)

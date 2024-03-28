@@ -18,4 +18,5 @@ public interface TelegramBotService {
     void openSupport(SpaceTraffBot bot, Long chatId) throws TelegramApiException;
     void openNewsGroup(SpaceTraffBot bot, Long chatId) throws TelegramApiException;
     void openChat(SpaceTraffBot bot, Long chatId) throws TelegramApiException;
+    void openEnChat(SpaceTraffBot bot, Long chatId) throws TelegramApiException;
 }

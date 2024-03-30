@@ -78,6 +78,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
             workingAccounts.remove(twitterAccount.getId());
             return;
         }
+        // add catch
 
         XUserData userData = getUserByScreenName(twitterAccount);
         if (!nonNull(twitterAccount.getRestId())) {
@@ -86,7 +87,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
             }
         }
 
-        TwitterAccountStatus status = twitterAccount.getStatus();
+        TwitterAccountStatus status = twitterAccountService.get(twitterAccountId).getStatus();
         int groupTryCounter = 0;
         while (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN) || status.equals(TwitterAccountStatus.UPDATED_COOKIES)) {
             if (isNotExpired(twitterAccount)) {
@@ -179,9 +180,9 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
 
     private int processGroup(TwitterAccount twitterAccount, String groupId, Integer postToRetweet, int retweetCounter) throws InterruptedException {
         XGroupMessage groupMessages = getGroupMessages(twitterAccount, groupId);
-        twitterAccount = twitterAccountService.get(twitterAccount.getId());
-        TwitterAccountStatus status = twitterAccount.getStatus();
-        if (nonNull(groupMessages) && status.equals(TwitterAccountStatus.ACTIVE)) {
+//        twitterAccount = twitterAccountService.get(twitterAccount.getId());
+//        TwitterAccountStatus status = twitterAccount.getStatus();
+        if (nonNull(groupMessages)) {
             List<Entry> filteredEntries = filterEntries(groupMessages.getConversationTimeline().getEntries(), twitterAccount.getRestId(), postToRetweet);
             List<String> screenNames = convertIdsToScreenNames(filteredEntries, groupMessages.getConversationTimeline().getUsers());
             if (!filteredEntries.isEmpty()) {

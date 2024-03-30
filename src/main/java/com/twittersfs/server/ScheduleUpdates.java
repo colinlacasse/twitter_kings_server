@@ -22,7 +22,6 @@ public class ScheduleUpdates {
     private final TwitterAccountRepo twitterAccountRepo;
     private final TwitterAppService twitterAppService;
     private final TwitterAuthService authService;
-    private boolean firstRun = false;
     private final AppGroupService appGroupService;
 
     public ScheduleUpdates(TwitterAccountRepo twitterAccountRepo, TwitterAppService twitterAppService, TwitterAuthService authService, AppGroupService appGroupService) {
@@ -32,23 +31,10 @@ public class ScheduleUpdates {
         this.appGroupService = appGroupService;
     }
 
-    @PostConstruct
-    public void init() {
-        firstRun = true;
-    }
-
-    @Scheduled(fixedRate = 14400000)
-    public void updateCookiesAndRestart() {
-        if (firstRun) {
-            try {
-                Thread.sleep(300000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            firstRun = false;
-        }
-
-        log.info("!!!!!!!!!!!!!!!!!!Updating cookies started!!!!!!!!!!!!!!!!!!!!");
+    @Scheduled(fixedRate = 10800000)
+    public void updateCookiesAndRestart() throws InterruptedException {
+        Thread.sleep(300000);
+        log.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Updating cookies started!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         List<TwitterAccount> all = twitterAccountRepo.findAll();
         for (TwitterAccount account : all) {
             TwitterAccount twitterAccount = twitterAccountRepo.findById(account.getId()).orElseThrow(() -> new RuntimeException("No account with such id"));
@@ -63,6 +49,7 @@ public class ScheduleUpdates {
             }
         }
         all = twitterAccountRepo.findAll();
+        log.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Updating captcha started!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         for (TwitterAccount account : all) {
             TwitterAccount twitterAccount = twitterAccountRepo.findById(account.getId()).orElseThrow(() -> new RuntimeException("No account with such id"));
             TwitterAccountStatus status = twitterAccount.getStatus();

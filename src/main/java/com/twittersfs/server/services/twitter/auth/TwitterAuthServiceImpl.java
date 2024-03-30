@@ -75,9 +75,10 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
     @Override
     public void login(TwitterAccount twitterAccount) {
         twitterAccountRepo.updateCsrfToken(twitterAccount.getId(), null);
+        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
         try {
             this.cred = new AuthCredential();
-            getUserCredential(twitterAccount);
+            getUserCredential(twitterAccount, client);
         } catch (Exception e) {
             log.error("Error during logging in " + e + " : " + twitterAccount.getUsername());
             twitterAccountRepo.updateStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
@@ -111,13 +112,13 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
         }
     }
 
-    private void getUserCredential(TwitterAccount twitterAccount) throws IOException {
+    private void getUserCredential(TwitterAccount twitterAccount, OkHttpClient client) throws IOException {
         if (nonNull(twitterAccount.getProxy())) {
             this.cred = getGuestCredential(twitterAccount.getProxy());
-            initiateLogin(twitterAccount.getProxy());
+            initiateLogin(twitterAccount.getProxy(), client);
             for (int i = 0; i < subtasks.length; i++) {
                 LoginSubtaskPayload payload = getSubtaskPayload(subtasks[i], flowToken, twitterAccount);
-                OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
+//                OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
                 Response response = executeLoginSubtask(payload, client);
                 handleLoginSubtaskResponse(response, i, twitterAccount);
             }
@@ -128,8 +129,8 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
 
     }
 
-    private void initiateLogin(Proxy proxy) throws IOException {
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
+    private void initiateLogin(Proxy proxy, OkHttpClient client) throws IOException {
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
 //        log.info("INIT");
         Request request = new Request.Builder()
                 .url(ELoginUrls.INITIATE_LOGIN.getValue())

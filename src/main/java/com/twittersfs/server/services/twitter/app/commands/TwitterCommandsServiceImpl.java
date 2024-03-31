@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.ProtocolException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -89,9 +90,11 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
 
         TwitterAccountStatus status = twitterAccountService.get(twitterAccountId).getStatus();
         int groupTryCounter = 0;
-        while (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN) || status.equals(TwitterAccountStatus.UPDATED_COOKIES)) {
+        while (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
             if (isNotExpired(twitterAccount)) {
                 try {
+                    twitterAccount = twitterAccountService.get(twitterAccountId);
+                    status = twitterAccount.getStatus();
                     if (!nonNull(twitterAccount.getCsrfToken())) {
                         twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.INVALID_COOKIES);
                         workingAccounts.remove(twitterAccount.getId());
@@ -100,7 +103,6 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                     if (status.equals(TwitterAccountStatus.COOLDOWN)) {
                         twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.ACTIVE);
                     }
-                    twitterAccount = twitterAccountService.get(twitterAccountId);
                     XUserGroup groups = getUserConversations(twitterAccount);
                     int friendsBefore = twitterAccount.getFriends();
                     int messagesBefore = twitterAccount.getMessagesSent();
@@ -128,10 +130,14 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                         twitterAccount = twitterAccountService.get(twitterAccountId);
                         updateAccountStatistics(twitterAccountId, userData, twitterAccount, friendsBefore, messagesBefore, retweetsBefore);
                         status = twitterAccount.getStatus();
-                        Thread.sleep(1920000);
+                        if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
+                            Thread.sleep(1920000);
+                        }
                     } else {
                         groupTryCounter++;
-                        Thread.sleep(600000);
+                        if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
+                            Thread.sleep(600000);
+                        }
                         if (groupTryCounter > 3) {
                             log.error("Null Groups in execution method : " + twitterAccount.getUsername());
                             status = twitterAccountService.get(twitterAccountId).getStatus();
@@ -150,7 +156,8 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                     twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.LOCKED);
                     workingAccounts.remove(twitterAccount.getId());
                     return;
-                } catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
+                }
+                catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
                          XAccountCooldownException ignored) {
                 } catch (XAccountSuspendedException e) {
                     twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.SUSPENDED);
@@ -192,6 +199,10 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                         XUserData userData = twitterApiRequests.getUserByScreenName(screenName, twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
                         retweetPinnedPost(userData, twitterAccount);
                         retweetCounter++;
+                    } catch (XAccountProxyException | ProtocolException | ConnectException e) {
+                        twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.PROXY_ERROR);
+                        workingAccounts.remove(twitterAccount.getId());
+                        break;
                     } catch (IndexOutOfBoundsException | XAccountRateLimitException | XAccountPermissionException |
                              XAccountOverCapacityException | SocketTimeoutException | SocketException |
                              XAccountCooldownException ignored) {
@@ -205,10 +216,6 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                         break;
                     } catch (XAccountSuspendedException e) {
                         twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.SUSPENDED);
-                        workingAccounts.remove(twitterAccount.getId());
-                        break;
-                    } catch (XAccountProxyException | ProtocolException e) {
-                        twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.PROXY_ERROR);
                         workingAccounts.remove(twitterAccount.getId());
                         break;
                     } catch (Exception e) {

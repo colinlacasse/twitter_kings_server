@@ -25,6 +25,7 @@ import okhttp3.*;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -79,6 +80,9 @@ public class TwitterAuthServiceImpl implements TwitterAuthService {
         try {
             this.cred = new AuthCredential();
             getUserCredential(twitterAccount, client);
+        } catch (ConnectException e) {
+            log.error("Proxy error during logging in " + e + " : " + twitterAccount.getUsername());
+            twitterAccountRepo.updateStatus(twitterAccount.getId(), TwitterAccountStatus.PROXY_ERROR);
         } catch (Exception e) {
             log.error("Error during logging in " + e + " : " + twitterAccount.getUsername());
             twitterAccountRepo.updateStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);

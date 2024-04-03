@@ -13,6 +13,8 @@ public class UserData {
     private Float balance;
     private SubscriptionType subscription;
     private Integer active;
+    private Integer all;
+    private Integer proxyerr;
     private Integer cooldown;
     private Integer disabled;
     private Integer locked;

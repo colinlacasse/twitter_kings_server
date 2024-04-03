@@ -33,7 +33,7 @@ public class ScheduleUpdates {
 
     @Scheduled(fixedRate = 10800000)
     public void updateCookiesAndRestart() throws InterruptedException {
-        Thread.sleep(300000);
+        Thread.sleep(600000);
         log.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Updating cookies started!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         List<TwitterAccount> all = twitterAccountRepo.findAll();
         for (TwitterAccount account : all) {

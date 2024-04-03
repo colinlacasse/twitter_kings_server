@@ -156,8 +156,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                     twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.LOCKED);
                     workingAccounts.remove(twitterAccount.getId());
                     return;
-                }
-                catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
+                } catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
                          XAccountCooldownException ignored) {
                 } catch (XAccountSuspendedException e) {
                     twitterAccountService.updateTwitterAccountStatus(twitterAccountId, TwitterAccountStatus.SUSPENDED);
@@ -187,8 +186,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
 
     private int processGroup(TwitterAccount twitterAccount, String groupId, Integer postToRetweet, int retweetCounter) throws InterruptedException {
         XGroupMessage groupMessages = getGroupMessages(twitterAccount, groupId);
-//        twitterAccount = twitterAccountService.get(twitterAccount.getId());
-//        TwitterAccountStatus status = twitterAccount.getStatus();
+        int proxyTryCounter = 0;
         if (nonNull(groupMessages)) {
             List<Entry> filteredEntries = filterEntries(groupMessages.getConversationTimeline().getEntries(), twitterAccount.getRestId(), postToRetweet);
             List<String> screenNames = convertIdsToScreenNames(filteredEntries, groupMessages.getConversationTimeline().getUsers());
@@ -199,10 +197,15 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                         XUserData userData = twitterApiRequests.getUserByScreenName(screenName, twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
                         retweetPinnedPost(userData, twitterAccount);
                         retweetCounter++;
+                        proxyTryCounter = 0;
                     } catch (XAccountProxyException | ProtocolException | ConnectException e) {
-                        twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.PROXY_ERROR);
-                        workingAccounts.remove(twitterAccount.getId());
-                        break;
+                        proxyTryCounter++;
+                        Thread.sleep(10000);
+                        if (proxyTryCounter >= 3) {
+                            twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.PROXY_ERROR);
+                            workingAccounts.remove(twitterAccount.getId());
+                            break;
+                        }
                     } catch (IndexOutOfBoundsException | XAccountRateLimitException | XAccountPermissionException |
                              XAccountOverCapacityException | SocketTimeoutException | SocketException |
                              XAccountCooldownException ignored) {
@@ -249,13 +252,17 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     private List<String> convertIdsToScreenNames(List<Entry> entries, Map<String, XUser> users) {
         List<String> screenNames = new ArrayList<>();
         for (Entry entry : entries) {
-            MessageData messageData = entry.getMessage().getMessageData();
-            String senderId = messageData.getSenderId();
-            for (Map.Entry<String, XUser> userEntry : users.entrySet()) {
-                XUser xUser = userEntry.getValue();
-                if (xUser.getUserId().equals(senderId)) {
-                    screenNames.add(xUser.getScreenName());
+            try {
+                MessageData messageData = entry.getMessage().getMessageData();
+                String senderId = messageData.getSenderId();
+                for (Map.Entry<String, XUser> userEntry : users.entrySet()) {
+                    XUser xUser = userEntry.getValue();
+                    if (xUser.getUserId().equals(senderId)) {
+                        screenNames.add(xUser.getScreenName());
+                    }
                 }
+            } catch (NullPointerException ignored) {
+
             }
         }
         return screenNames;

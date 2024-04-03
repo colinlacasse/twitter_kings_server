@@ -29,6 +29,7 @@ public class LoadDataOnStartUp {
             TwitterAccountStatus status = account.getStatus();
             if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
                 twitterAppService.run(account.getId());
+                Thread.sleep(1000);
             } else if (status.equals(TwitterAccountStatus.STOPPING)) {
                 twitterAccountRepo.updateStatus(account.getId(), TwitterAccountStatus.DISABLED);
             }

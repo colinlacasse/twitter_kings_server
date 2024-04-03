@@ -68,6 +68,8 @@ public class UserServiceImpl implements UserService {
         int error = 0;
         int stopping = 0;
         int updated = 0;
+        int all = 0;
+        int proxyErr = 0;
         List<ModelEntity> models = entity.getModelEntities();
         List<TwitterAccount> twitterAccounts = models.stream()
                 .flatMap(modelEntity -> modelEntity.getTwitterAccounts().stream()).toList();
@@ -87,10 +89,12 @@ public class UserServiceImpl implements UserService {
                 suspended++;
             } else if (twitterAccount.getStatus().equals(TwitterAccountStatus.UNEXPECTED_ERROR)) {
                 error++;
-            }else if (twitterAccount.getStatus().equals(TwitterAccountStatus.STOPPING)) {
+            } else if (twitterAccount.getStatus().equals(TwitterAccountStatus.STOPPING)) {
                 stopping++;
-            }else if (twitterAccount.getStatus().equals(TwitterAccountStatus.UPDATED_COOKIES)) {
+            } else if (twitterAccount.getStatus().equals(TwitterAccountStatus.UPDATED_COOKIES)) {
                 updated++;
+            } else if (twitterAccount.getStatus().equals(TwitterAccountStatus.PROXY_ERROR)) {
+                proxyErr++;
             }
         }
         return UserData.builder()
@@ -100,6 +104,8 @@ public class UserServiceImpl implements UserService {
                 .suspended(suspended)
                 .error(error)
                 .invalid(invalid)
+                .all(twitterAccounts.size())
+                .proxyerr(proxyErr)
                 .locked(locked)
                 .stopping(stopping)
                 .updated(updated)

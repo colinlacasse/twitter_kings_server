@@ -209,13 +209,13 @@ public class TelegramBotServiceImpl implements TelegramBotService {
             case 30 -> {
                 return "29";
             }
-            case 117 -> {
+            case 120 -> {
                 return "87";
             }
-            case 204 -> {
+            case 210 -> {
                 return "145";
             }
-            case 436 -> {
+            case 450 -> {
                 return "290";
             }
         }

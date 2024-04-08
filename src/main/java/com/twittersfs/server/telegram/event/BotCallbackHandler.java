@@ -25,7 +25,7 @@ public class BotCallbackHandler {
             case "english", "russian" ->
                     telegramBotService.saveLanguage(bot, query.getMessage().getChatId(), callbackData);
             case "topup" -> telegramBotService.sendBalanceTable(bot, query.getMessage().getChatId());
-            case "30", "117", "204", "436" ->
+            case "30", "120", "210", "450" ->
                     telegramBotService.setRefillAmount(bot, query.getMessage().getChatId(), callbackData);
             case "payed" -> telegramBotService.handlePayedButton(bot, query.getMessage().getChatId());
             case "sfsgroup" -> telegramBotService.openNewsGroup(bot, query.getMessage().getChatId());

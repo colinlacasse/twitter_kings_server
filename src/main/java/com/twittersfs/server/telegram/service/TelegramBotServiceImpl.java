@@ -20,6 +20,8 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+import static java.util.Objects.nonNull;
+
 @Service
 public class TelegramBotServiceImpl implements TelegramBotService {
     private final TelegramBotMarkups botMarkups;
@@ -47,11 +49,19 @@ public class TelegramBotServiceImpl implements TelegramBotService {
     @Transactional
     public void saveLanguage(SpaceTraffBot bot, Long chatId, String language) throws TelegramApiException {
         saveTelegramUser(chatId, language);
-        switch (language) {
-            case "english" ->
-                    sendMessageWithMarkup(bot, chatId, "\u270C" + " Space-Traff Soft Home Menu", botMarkups.homeKeyboard(language));
-            default ->
-                    sendMessageWithMarkup(bot, chatId, "\u270C" + " Space-Traff Soft Меню", botMarkups.homeKeyboard(language));
+        TelegramUserEntity tgUser = telegramUserRepo.findById(chatId).orElseThrow(() -> new RuntimeException("User with such Id does not exist"));
+        if (!nonNull(tgUser.getVerified()) || tgUser.getVerified().equals(Boolean.FALSE)) {
+            switch (language) {
+                case "english" -> sendMessage(bot, chatId, "\uD83D\uDCE7" + " Type your email to verify account");
+                default -> sendMessage(bot, chatId, "\uD83D\uDCE7" + " Введите почту что бы верифицироать аккаунт");
+            }
+        } else {
+            switch (language) {
+                case "english" ->
+                        sendMessageWithMarkup(bot, chatId, "\u270C" + " Space-Traff Soft Home Menu", botMarkups.homeKeyboard(language));
+                default ->
+                        sendMessageWithMarkup(bot, chatId, "\u270C" + " Space-Traff Soft Меню", botMarkups.homeKeyboard(language));
+            }
         }
     }
 
@@ -98,24 +108,25 @@ public class TelegramBotServiceImpl implements TelegramBotService {
                     sendMessageWithMarkup(bot, chatId, "\uD83D\uDCB5" + " Сумма пополения " + paymentAmount + " $" + "\nСделайте перевод через USDT TRC20 и нажмите кнопку ОПЛАЧЕНО \nКошелек : " + wallet, botMarkups.payedButton(language));
         }
     }
+
     @Override
     public void openSupport(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
-        sendMessage(bot, chatId , "https://t.me/spacetraffsupport");
+        sendMessage(bot, chatId, "https://t.me/spacetraffsupport");
     }
 
     @Override
     public void openNewsGroup(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
-        sendMessage(bot, chatId , "https://t.me/spacetraffsoft");
+        sendMessage(bot, chatId, "https://t.me/spacetraffsoft");
     }
 
     @Override
     public void openChat(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
-        sendMessage(bot, chatId , "https://t.me/+6c3OIX0oJnszNjFi");
+        sendMessage(bot, chatId, "https://t.me/+6c3OIX0oJnszNjFi");
     }
 
     @Override
     public void openEnChat(SpaceTraffBot bot, Long chatId) throws TelegramApiException {
-        sendMessage(bot, chatId , "https://t.me/+zNz03ursvYtjZmUy");
+        sendMessage(bot, chatId, "https://t.me/+zNz03ursvYtjZmUy");
     }
 
     @Override
@@ -132,6 +143,7 @@ public class TelegramBotServiceImpl implements TelegramBotService {
         }
         sendMessage(bot, adminChatId, "User : " + user.getEmail() + "\nRefill : " + user.getRefillAmount() + "\nTime : " + now + "\nTransaction ID : " + user.getTempId());
     }
+
     @Override
     @Transactional
     public void approve(SpaceTraffBot bot, Long chatId, String tempId) throws TelegramApiException {

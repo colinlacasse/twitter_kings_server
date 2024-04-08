@@ -4,8 +4,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.twittersfs.server.dtos.twitter.auth.response.InitLogin;
 import com.twittersfs.server.dtos.twitter.auth.unclock.XAccessPageResp;
+import com.twittersfs.server.dtos.twitter.auth.unclock.XCaptchaToken;
 import com.twittersfs.server.dtos.twitter.error.XApiError;
 import com.twittersfs.server.dtos.twitter.group.XUserGroup;
 import com.twittersfs.server.dtos.twitter.media.XUserMedia;
@@ -14,17 +14,19 @@ import com.twittersfs.server.dtos.twitter.message.XGif;
 import com.twittersfs.server.dtos.twitter.message.XGifStatus;
 import com.twittersfs.server.dtos.twitter.message.XGroupMessage;
 import com.twittersfs.server.dtos.twitter.retweet.DeleteRetweet;
+import com.twittersfs.server.dtos.twitter.statistic.XAccountStatistic;
+import com.twittersfs.server.dtos.twitter.statistic.XAccountTimeZone;
 import com.twittersfs.server.dtos.twitter.user.XUserData;
 import com.twittersfs.server.entities.Proxy;
 import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.exceptions.twitter.*;
 import com.twittersfs.server.okhttp3.OkHttp3ClientService;
-import com.twittersfs.server.dtos.twitter.auth.response.FlowToken;
-import com.twittersfs.server.dtos.twitter.auth.unclock.XCaptchaToken;
-import com.twittersfs.server.dtos.twitter.auth.request.LoginSubtaskPayload;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.jetbrains.annotations.NotNull;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -48,10 +50,70 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     }
 
     @Override
-    public XUserData getUserByScreenName(String twitterAccountName, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
+    public XAccountStatistic getAccountStatistic(OkHttpClient client, TwitterAccount twitterAccount) throws IOException {
+        String url = "https://analytics.twitter.com/user/" + twitterAccount.getUsername() + "/tweets/account_stats.json?";
+        Request request = new Request.Builder().url(url)
+                .addHeader("cookie", twitterAccount.getCookie())
+                .addHeader("authority", "analytics.twitter.com")
+                .addHeader("refer", "https://analytics.twitter.com/user/" + twitterAccount.getUsername() + "/tweets")
+                .addHeader("accept", "*/*")
+                .addHeader("x-csrf-token", twitterAccount.getCsrfToken())
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            String jsonResponse = response.body().string();
+            if (!response.isSuccessful()) {
+                throw new RuntimeException("Failed to get account statistic in account : " + twitterAccount.getUsername() + " : " + jsonResponse);
+            }
+            return mapper.readValue(jsonResponse, XAccountStatistic.class);
+        }
+    }
+
+    @Override
+    public XAccountTimeZone getAccountTimeZone(OkHttpClient client, TwitterAccount twitterAccount, String adsAccountId) throws IOException {
+        String url = "https://ads-api.twitter.com/11/accounts/" + adsAccountId + "/perspective";
+        Request request = new Request.Builder().url(url)
+                .addHeader("cookie", twitterAccount.getCookie())
+                .addHeader("authority", "ads-api.twitter.com")
+                .addHeader("accept", "*/*")
+                .addHeader("authorization", "Bearer AAAAAAAAAAAAAAAAAAAAAG5LOQEAAAAAbEKsIYYIhrfOQqm4H8u7xcahRkU%3Dz98HKmzbeXdKqBfUDmElcqYl0cmmKY9KdS2UoNIz3Phapgsowi")
+                .addHeader("x-csrf-token", twitterAccount.getCsrfToken())
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            String jsonResponse = response.body().string();
+            if (!response.isSuccessful()) {
+                throw new RuntimeException("Failed to get account time zone : ");
+            }
+            return mapper.readValue(jsonResponse, XAccountTimeZone.class);
+        }
+    }
+    @Override
+    public String getAdsAccountId(OkHttpClient client, TwitterAccount twitterAccount) throws IOException {
+        String url = "https://analytics.twitter.com/user/" + twitterAccount.getUsername() + "/home";
+        Request request = new Request.Builder().url(url)
+                .addHeader("cookie", twitterAccount.getCookie())
+                .addHeader("authority", "analytics.twitter.com")
+//                .addHeader("refer", "https://analytics.twitter.com/user/" + twitterAccount.getUsername() + "/tweets")
+                .addHeader("accept", "*/*")
+                .addHeader("x-csrf-token", twitterAccount.getCsrfToken())
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            String jsonResponse = response.body().string();
+            Document doc = Jsoup.parse(jsonResponse);
+            Element scriptTag = doc.selectFirst("#webaf-navbar-data");
+            String jsonData = scriptTag.data();
+            if (!response.isSuccessful()) {
+                throw new RuntimeException("Failed to get ads account id : " + twitterAccount.getUsername() + " : " + jsonResponse);
+            }
+            JsonNode jsonNode = mapper.readTree(jsonData);
+            return jsonNode.get("adsAccountId").asText();
+        }
+    }
+
+    @Override
+    public XUserData getUserByScreenName(OkHttpClient client, String twitterAccountName, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
         String url = "https://twitter.com/i/api/graphql/G3KGOASz96M-Qu0nwmGXNg/UserByScreenName?variables=%7B%22screen_name%22%3A%22" + twitterAccountName + "%22%2C%22withSafetyModeUserFields%22%3Atrue%7D&features=%7B%22hidden_profile_likes_enabled%22%3Atrue%2C%22hidden_profile_subscriptions_enabled%22%3Atrue%2C%22responsive_web_graphql_exclude_directive_enabled%22%3Atrue%2C%22verified_phone_label_enabled%22%3Afalse%2C%22subscriptions_verification_info_is_identity_verified_enabled%22%3Atrue%2C%22subscriptions_verification_info_verified_since_enabled%22%3Atrue%2C%22highlights_tweets_tab_ui_enabled%22%3Atrue%2C%22creator_subscriptions_tweet_preview_api_enabled%22%3Atrue%2C%22responsive_web_graphql_skip_user_profile_image_extensions_enabled%22%3Afalse%2C%22responsive_web_graphql_timeline_navigation_enabled%22%3Atrue%7D&fieldToggles=%7B%22withAuxiliaryUserLabels%22%3Afalse%7D";
 //        ObjectMapper mapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
         try (Response response = client.newCall(buildRequest(url, cookies, auth, csrf)).execute()) {
             String jsonResponse = response.body().string();
             if (!response.isSuccessful()) {
@@ -62,9 +124,9 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     }
 
     @Override
-    public XUserMedia getUserMedia(String twitterAccountName, String userId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
+    public XUserMedia getUserMedia(OkHttpClient client, String twitterAccountName, String userId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
         String url = "https://twitter.com/i/api/graphql/dh2lDmjqEkxCWQK_UxkH4w/UserTweets?variables=%7B%22userId%22%3A%22" + userId + "%22%2C%22count%22%3A20%2C%22includePromotedContent%22%3Atrue%2C%22withQuickPromoteEligibilityTweetFields%22%3Atrue%2C%22withVoice%22%3Atrue%2C%22withV2Timeline%22%3Atrue%7D&features=%7B%22responsive_web_graphql_exclude_directive_enabled%22%3Atrue%2C%22verified_phone_label_enabled%22%3Afalse%2C%22responsive_web_home_pinned_timelines_enabled%22%3Atrue%2C%22creator_subscriptions_tweet_preview_api_enabled%22%3Atrue%2C%22responsive_web_graphql_timeline_navigation_enabled%22%3Atrue%2C%22responsive_web_graphql_skip_user_profile_image_extensions_enabled%22%3Afalse%2C%22c9s_tweet_anatomy_moderator_badge_enabled%22%3Atrue%2C%22tweetypie_unmention_optimization_enabled%22%3Atrue%2C%22responsive_web_edit_tweet_api_enabled%22%3Atrue%2C%22graphql_is_translatable_rweb_tweet_is_translatable_enabled%22%3Atrue%2C%22view_counts_everywhere_api_enabled%22%3Atrue%2C%22longform_notetweets_consumption_enabled%22%3Atrue%2C%22responsive_web_twitter_article_tweet_consumption_enabled%22%3Afalse%2C%22tweet_awards_web_tipping_enabled%22%3Afalse%2C%22freedom_of_speech_not_reach_fetch_enabled%22%3Atrue%2C%22standardized_nudges_misinfo%22%3Atrue%2C%22tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled%22%3Atrue%2C%22longform_notetweets_rich_text_read_enabled%22%3Atrue%2C%22longform_notetweets_inline_media_enabled%22%3Atrue%2C%22responsive_web_media_download_video_enabled%22%3Afalse%2C%22responsive_web_enhance_cards_enabled%22%3Afalse%7D";
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 //                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -78,8 +140,8 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     }
 
     @Override
-    public XUserGroup getUserConversations(String twitterAccountName, String userId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
+    public XUserGroup getUserConversations(OkHttpClient client, String twitterAccountName, String userId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 //                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -100,8 +162,8 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     }
 
     @Override
-    public XGroupMessage getGroupMessages(String twitterAccountName, String groupId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
+    public XGroupMessage getGroupMessages(OkHttpClient client, String twitterAccountName, String groupId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         String url = "https://twitter.com/i/api/1.1/dm/conversation/" + groupId + ".json?";
@@ -115,8 +177,8 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     }
 
     @Override
-    public void writeMessage(String twitterAccountName, String message, String groupId, Proxy proxy, String cookies, String auth, String csrf, String mediaId) throws IOException {
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
+    public void writeMessage(OkHttpClient client, String twitterAccountName, String message, String groupId, Proxy proxy, String cookies, String auth, String csrf, String mediaId) throws IOException {
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 //                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -137,9 +199,9 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     }
 
     @Override
-    public void retweet(String twitterAccountName, String postId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
+    public void retweet(OkHttpClient client, String twitterAccountName, String postId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
         String url = "https://twitter.com/i/api/graphql/ojPdsZsimiJrUGLR1sjUtA/CreateRetweet";
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 //                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -155,8 +217,8 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     }
 
     @Override
-    public void deleteRetweet(String twitterAccountName, String postId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
+    public void deleteRetweet(OkHttpClient client, String twitterAccountName, String postId, Proxy proxy, String cookies, String auth, String csrf) throws IOException {
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(proxy);
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 //                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -183,8 +245,8 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     }
 
     @Override
-    public XGif getGifMediaId(TwitterAccount twitterAccount, String gifUrl) throws IOException {
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
+    public XGif getGifMediaId(OkHttpClient client, TwitterAccount twitterAccount, String gifUrl) throws IOException {
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 //                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -210,8 +272,8 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
     }
 
     @Override
-    public XGifStatus checkGifStatus(TwitterAccount twitterAccount, String mediaId) throws IOException {
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
+    public XGifStatus checkGifStatus(OkHttpClient client, TwitterAccount twitterAccount, String mediaId) throws IOException {
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 //                .setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -296,84 +358,84 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
         buildRequestBody(twitterAccount.getUsername(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken(), client, mapper, url, requestBody);
     }
 
-    public String getGuestCreds(TwitterAccount twitterAccount) throws IOException {
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
-        String url = "https://api.twitter.com/1.1/guest/activate.json";
-        Request request = new Request.Builder()
-                .url(url)
-                .post(RequestBody.create(null, new byte[0]))
-                .addHeader("cookie", twitterAccount.getCookie())
-                .addHeader("authority", "twitter.com")
-                .addHeader("accept", "*/*")
-                .addHeader("authorization", "Bearer " + twitterAccount.getAuthToken())
-                .addHeader("x-csrf-token", twitterAccount.getCsrfToken())
-                .build();
-
-        try (Response response = client.newCall(request).execute()) {
-            String jsonResponse = response.body().string();
-            if (!response.isSuccessful()) {
-                throw new IOException("Get guest creds failed : " + response);
-            }
-            JsonNode jsonNode = mapper.readTree(jsonResponse);
-//            log.info("GUEST TOKEN : " + jsonNode.get("guest_token").asText());
-            return jsonNode.get("guest_token").asText();
-        }
-    }
-
-    public InitLogin initiateLogin(TwitterAccount twitterAccount, String guestToken) throws IOException {
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
-        String url = "https://api.twitter.com/1.1/onboarding/task.json?flow_name=login";
-        Request request = new Request.Builder()
-                .url(url)
-                .post(RequestBody.create(null, new byte[0]))
-                .addHeader("x-guest-token", guestToken)
-                .addHeader("authority", "twitter.com")
-                .addHeader("accept", "*/*")
-                .addHeader("authorization", "Bearer " + twitterAccount.getAuthToken())
-                .build();
-
-        try (Response response = client.newCall(request).execute()) {
-            String[] setCookieHeaders = response.headers("Set-Cookie").toArray(new String[0]);
-            String cookies = String.join(";", setCookieHeaders);
-            String jsonResponse = response.body().string();
-            if (!response.isSuccessful()) {
-                throw new IOException("Initiate login failed: " + response);
-            }
-            String flowToken = mapper.readValue(jsonResponse, FlowToken.class).getFlowToken();
-            InitLogin initLogin = new InitLogin();
-            initLogin.setFlowToken(flowToken);
-            initLogin.setCookies(cookies);
-//            log.info("FLOW TOKEN : " + flowToken);
-            return initLogin;
-        }
-    }
-
-    public Response postLoginData(TwitterAccount twitterAccount, String guestToken, LoginSubtaskPayload payload, String cookies) throws IOException {
-        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
-        String url = "https://api.twitter.com/1.1/onboarding/task.json";
-        RequestBody requestBody = RequestBody.create(
-                MediaType.parse("application/json"), mapper.writeValueAsString(payload));
-
-        Request request = new Request.Builder()
-                .url(url)
-                .post(requestBody)
-                .addHeader("x-guest-token", guestToken)
-                .addHeader("authority", "twitter.com")
-                .addHeader("accept", "*/*")
-                .addHeader("authorization", "Bearer " + twitterAccount.getAuthToken())
-                .addHeader("cookies", cookies)
-                .build();
-
-        try (Response response = client.newCall(request).execute()) {
+//    public String getGuestCreds(TwitterAccount twitterAccount) throws IOException {
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
+//        String url = "https://api.twitter.com/1.1/guest/activate.json";
+//        Request request = new Request.Builder()
+//                .url(url)
+//                .post(RequestBody.create(null, new byte[0]))
+//                .addHeader("cookie", twitterAccount.getCookie())
+//                .addHeader("authority", "twitter.com")
+//                .addHeader("accept", "*/*")
+//                .addHeader("authorization", "Bearer " + twitterAccount.getAuthToken())
+//                .addHeader("x-csrf-token", twitterAccount.getCsrfToken())
+//                .build();
+//
+//        try (Response response = client.newCall(request).execute()) {
 //            String jsonResponse = response.body().string();
-            if (!response.isSuccessful()) {
-                throw new IOException("Post login data failed: " + response.body().string());
-            }
-            return response;
+//            if (!response.isSuccessful()) {
+//                throw new IOException("Get guest creds failed : " + response);
+//            }
+//            JsonNode jsonNode = mapper.readTree(jsonResponse);
+////            log.info("GUEST TOKEN : " + jsonNode.get("guest_token").asText());
+//            return jsonNode.get("guest_token").asText();
+//        }
+//    }
+//
+//    public InitLogin initiateLogin(TwitterAccount twitterAccount, String guestToken) throws IOException {
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
+//        String url = "https://api.twitter.com/1.1/onboarding/task.json?flow_name=login";
+//        Request request = new Request.Builder()
+//                .url(url)
+//                .post(RequestBody.create(null, new byte[0]))
+//                .addHeader("x-guest-token", guestToken)
+//                .addHeader("authority", "twitter.com")
+//                .addHeader("accept", "*/*")
+//                .addHeader("authorization", "Bearer " + twitterAccount.getAuthToken())
+//                .build();
+//
+//        try (Response response = client.newCall(request).execute()) {
+//            String[] setCookieHeaders = response.headers("Set-Cookie").toArray(new String[0]);
+//            String cookies = String.join(";", setCookieHeaders);
+//            String jsonResponse = response.body().string();
+//            if (!response.isSuccessful()) {
+//                throw new IOException("Initiate login failed: " + response);
+//            }
 //            String flowToken = mapper.readValue(jsonResponse, FlowToken.class).getFlowToken();
-//            log.info("FLOW TOKEN : " + flowToken);
-        }
-    }
+//            InitLogin initLogin = new InitLogin();
+//            initLogin.setFlowToken(flowToken);
+//            initLogin.setCookies(cookies);
+////            log.info("FLOW TOKEN : " + flowToken);
+//            return initLogin;
+//        }
+//    }
+//
+//    public Response postLoginData(TwitterAccount twitterAccount, String guestToken, LoginSubtaskPayload payload, String cookies) throws IOException {
+//        OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
+//        String url = "https://api.twitter.com/1.1/onboarding/task.json";
+//        RequestBody requestBody = RequestBody.create(
+//                MediaType.parse("application/json"), mapper.writeValueAsString(payload));
+//
+//        Request request = new Request.Builder()
+//                .url(url)
+//                .post(requestBody)
+//                .addHeader("x-guest-token", guestToken)
+//                .addHeader("authority", "twitter.com")
+//                .addHeader("accept", "*/*")
+//                .addHeader("authorization", "Bearer " + twitterAccount.getAuthToken())
+//                .addHeader("cookies", cookies)
+//                .build();
+//
+//        try (Response response = client.newCall(request).execute()) {
+////            String jsonResponse = response.body().string();
+//            if (!response.isSuccessful()) {
+//                throw new IOException("Post login data failed: " + response.body().string());
+//            }
+//            return response;
+////            String flowToken = mapper.readValue(jsonResponse, FlowToken.class).getFlowToken();
+////            log.info("FLOW TOKEN : " + flowToken);
+//        }
+//    }
 
     public XAccessPageResp getAccessPage(TwitterAccount twitterAccount) throws IOException {
         OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
@@ -398,7 +460,7 @@ public class TwitterApiRequestsImpl implements TwitterApiRequests {
         }
     }
 
-    public String postToAccessPage(TwitterAccount twitterAccount, XCaptchaToken tokens, String jsInst , String cookies) throws IOException {
+    public String postToAccessPage(TwitterAccount twitterAccount, XCaptchaToken tokens, String jsInst, String cookies) throws IOException {
         OkHttpClient client = okHttp3ClientService.createClientWithProxy(twitterAccount.getProxy());
 //        ObjectMapper mapper = new ObjectMapper()
 //                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)

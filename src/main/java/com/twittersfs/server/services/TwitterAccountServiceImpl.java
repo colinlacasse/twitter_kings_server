@@ -9,15 +9,20 @@ import com.twittersfs.server.dtos.twitter.group.Conversation;
 import com.twittersfs.server.dtos.twitter.group.XUserGroup;
 import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageData;
 import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageDto;
+import com.twittersfs.server.dtos.twitter.statistic.XAccountStatistic;
+import com.twittersfs.server.dtos.twitter.statistic.XAccountTimeZone;
+import com.twittersfs.server.dtos.twitter.statistic.XStatistic;
 import com.twittersfs.server.dtos.twitter.user.XUserData;
 import com.twittersfs.server.entities.*;
 import com.twittersfs.server.enums.*;
 import com.twittersfs.server.exceptions.user.NotEnoughFunds;
+import com.twittersfs.server.okhttp3.OkHttp3ClientService;
 import com.twittersfs.server.repos.*;
 import com.twittersfs.server.services.twitter.app.commands.AppGroupService;
 import com.twittersfs.server.services.twitter.readonly.TwitterApiRequests;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -29,6 +34,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -45,8 +51,9 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     private final UserEntityRepo userRepo;
     private final AppGroupService groupService;
     private final TwitterApiRequests apiRequests;
+    private final OkHttp3ClientService clientService;
 
-    public TwitterAccountServiceImpl(TwitterAccountRepo twitterAccountRepo, TwitterChatMessageRepo messageRepo, ProxyRepo proxyRepo, ModelRepo modelRepo, UserEntityRepo userRepo, AppGroupService groupService, TwitterApiRequests apiRequests) {
+    public TwitterAccountServiceImpl(TwitterAccountRepo twitterAccountRepo, TwitterChatMessageRepo messageRepo, ProxyRepo proxyRepo, ModelRepo modelRepo, UserEntityRepo userRepo, AppGroupService groupService, TwitterApiRequests apiRequests, OkHttp3ClientService clientService) {
         this.twitterAccountRepo = twitterAccountRepo;
         this.messageRepo = messageRepo;
         this.proxyRepo = proxyRepo;
@@ -54,6 +61,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         this.userRepo = userRepo;
         this.groupService = groupService;
         this.apiRequests = apiRequests;
+        this.clientService = clientService;
     }
 
     @Override
@@ -90,18 +98,19 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
             user.setBalance(balance - Prices.X_DAY_SUBSCRIPTION.getValue());
             userRepo.save(user);
             try {
-                XUserData userData = apiRequests.getUserByScreenName(account.getUsername(), account.getProxy(), account.getCookie(), account.getAuthToken(), account.getCsrfToken());
+                OkHttpClient client = clientService.createClientWithProxy(account.getProxy());
+                XUserData userData = apiRequests.getUserByScreenName(client, account.getUsername(), account.getProxy(), account.getCookie(), account.getAuthToken(), account.getCsrfToken());
                 String restId = userData.getData().getUser().getResult().getRestId();
                 updateRestId(account.getId(), restId);
                 if (user.getSubscriptionType().equals(SubscriptionType.DONOR)) {
                     groupService.addGroupsToADonorAccount(account, restId);
                 } else if (user.getSubscriptionType().equals(SubscriptionType.AGENCY)) {
-                    int groups = countGroupsAmount(account, restId);
+                    int groups = countGroupsAmount(account, restId, client);
                     if (groups < 5) {
                         groupService.addGroupsToAgencyAccount(account, restId);
                     }
                 }
-                int counter = countGroupsAmount(account, restId);
+                int counter = countGroupsAmount(account, restId, client);
                 updateGroups(account.getId(), counter);
             } catch (Exception e) {
                 log.error("Exception while getting user data during creating twitter account : " + account.getUsername());
@@ -308,6 +317,20 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 .build();
     }
 
+    @Override
+    public XStatistic getAccountStatistic(Long twitterAccountId) {
+        TwitterAccount account = twitterAccountRepo.findById(twitterAccountId)
+                .orElseThrow(() -> new RuntimeException("Twitter account with such Id does not exist"));
+        try {
+            OkHttpClient client = clientService.createClientWithProxy(account.getProxy());
+            XAccountStatistic statistic = apiRequests.getAccountStatistic(client, account);
+            String adsAccountId = apiRequests.getAdsAccountId(client, account);
+            XAccountTimeZone timeZone = apiRequests.getAccountTimeZone(client, account, adsAccountId);
+            return XStatistic.builder().xAccountStatistic(statistic).xAccountTimeZone(timeZone).build();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get account statistic");
+        }
+    }
 
     private void updateProxy(Long twitterAccountId, String proxy) throws UnknownHostException {
         TwitterAccount account = twitterAccountRepo.findById(twitterAccountId)
@@ -568,10 +591,10 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
         }
     }
 
-    private int countGroupsAmount(TwitterAccount account, String restId) {
+    private int countGroupsAmount(TwitterAccount account, String restId, OkHttpClient client) {
         int counter = 0;
         try {
-            XUserGroup userGroup = apiRequests.getUserConversations(account.getUsername(), restId, account.getProxy(), account.getCookie(), account.getAuthToken(), account.getCsrfToken());
+            XUserGroup userGroup = apiRequests.getUserConversations(client, account.getUsername(), restId, account.getProxy(), account.getCookie(), account.getAuthToken(), account.getCsrfToken());
             for (Conversation conversation : userGroup.getInboxInitialState().getConversations().values()) {
                 if (nonNull(conversation.getName())) {
                     counter++;

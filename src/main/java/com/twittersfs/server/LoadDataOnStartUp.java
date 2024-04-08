@@ -23,13 +23,12 @@ public class LoadDataOnStartUp {
     }
 
     @EventListener(ApplicationReadyEvent.class)
-    public void loadData() throws InterruptedException {
+    public void loadData(){
         List<TwitterAccount> accounts = twitterAccountRepo.findAll();
         for (TwitterAccount account : accounts) {
             TwitterAccountStatus status = account.getStatus();
             if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
                 twitterAppService.run(account.getId());
-                Thread.sleep(1000);
             } else if (status.equals(TwitterAccountStatus.STOPPING)) {
                 twitterAccountRepo.updateStatus(account.getId(), TwitterAccountStatus.DISABLED);
             }

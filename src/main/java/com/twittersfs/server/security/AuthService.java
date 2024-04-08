@@ -11,4 +11,5 @@ public interface AuthService {
     void logout(String email);
     void sendResetPasswordEmail(ResetPassword email);
     void resetPassword(String email, ResetPassword resetData);
+    String sendVerificationCode(String email);
 }

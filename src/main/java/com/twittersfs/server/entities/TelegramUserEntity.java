@@ -18,4 +18,7 @@ public class TelegramUserEntity {
     private Integer refillAmount;
     private String email;
     private String tempId;
+    private String code;
+    private Boolean verified;
+    private String verificationEmail;
 }

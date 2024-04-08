@@ -5,6 +5,8 @@ import com.twittersfs.server.dtos.twitter.account.TwitterAccountCreate;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountData;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountUpdate;
 import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageDto;
+import com.twittersfs.server.dtos.twitter.statistic.XAccountStatistic;
+import com.twittersfs.server.dtos.twitter.statistic.XStatistic;
 import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.enums.TwitterAccountStatus;
 
@@ -33,4 +35,5 @@ public interface TwitterAccountService {
     List<TwitterAccount> findAll();
     PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(String email, TwitterAccountStatus status, int page, int size);
     PageableResponse<TwitterAccountData> getTwitterAccountsByModel(Long modelId, int page, int size);
+    XStatistic getAccountStatistic(Long twitterAccountId);
 }

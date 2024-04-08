@@ -6,10 +6,12 @@ import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.enums.GroupStatus;
 import com.twittersfs.server.enums.SubscriptionType;
 import com.twittersfs.server.exceptions.twitter.XAccountAuthException;
+import com.twittersfs.server.okhttp3.OkHttp3ClientService;
 import com.twittersfs.server.repos.TwitterAccountRepo;
 import com.twittersfs.server.services.twitter.auth.TwitterAuthService;
 import com.twittersfs.server.services.twitter.readonly.TwitterApiRequests;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -26,12 +28,14 @@ public class AppGroupServiceImpl implements AppGroupService {
     private final TwitterApiRequests twitterApiRequests;
     private final TwitterAccountRepo twitterAccountRepo;
     private final TwitterAuthService twitterAuthService;
+    private final OkHttp3ClientService clientService;
 
 
-    public AppGroupServiceImpl(TwitterApiRequests twitterApiRequests, TwitterAccountRepo twitterAccountRepo, TwitterAuthService twitterAuthService) {
+    public AppGroupServiceImpl(TwitterApiRequests twitterApiRequests, TwitterAccountRepo twitterAccountRepo, TwitterAuthService twitterAuthService, OkHttp3ClientService clientService) {
         this.twitterApiRequests = twitterApiRequests;
         this.twitterAccountRepo = twitterAccountRepo;
         this.twitterAuthService = twitterAuthService;
+        this.clientService = clientService;
     }
 
     @Override
@@ -50,8 +54,9 @@ public class AppGroupServiceImpl implements AppGroupService {
         int groupsBeforeAdding = receiver.getGroups();
         for (TwitterAccount account : donors) {
             try {
-                addGroups(account, receiver, receiverRestId);
-                XUserGroup afterAdding = twitterApiRequests.getUserConversations(receiver.getUsername(), receiver.getRestId(), receiver.getProxy(), receiver.getCookie(), receiver.getAuthToken(), receiver.getCsrfToken());
+                OkHttpClient client = clientService.createClientWithProxy(account.getProxy());
+                addGroups(account, receiver, receiverRestId, client);
+                XUserGroup afterAdding = twitterApiRequests.getUserConversations(client,receiver.getUsername(), receiver.getRestId(), receiver.getProxy(), receiver.getCookie(), receiver.getAuthToken(), receiver.getCsrfToken());
                 int groupsAfterAdding = countGroups(afterAdding);
                 if (groupsAfterAdding - groupsBeforeAdding > 15) {
                     twitterAccountRepo.updateGroupStatus(account.getId(), GroupStatus.USED);
@@ -75,8 +80,9 @@ public class AppGroupServiceImpl implements AppGroupService {
         Collections.shuffle(donors);
         for (TwitterAccount account : donors) {
             try {
-                addGroups(account, receiver, receiverRestId);
-                XUserGroup afterAdding = twitterApiRequests.getUserConversations(receiver.getUsername(), receiver.getRestId(), receiver.getProxy(), receiver.getCookie(), receiver.getAuthToken(), receiver.getCsrfToken());
+                OkHttpClient client = clientService.createClientWithProxy(account.getProxy());
+                addGroups(account, receiver, receiverRestId, client);
+                XUserGroup afterAdding = twitterApiRequests.getUserConversations(client,receiver.getUsername(), receiver.getRestId(), receiver.getProxy(), receiver.getCookie(), receiver.getAuthToken(), receiver.getCsrfToken());
                 int groupsAfterAdding = countGroups(afterAdding);
                 if (groupsAfterAdding > 15) {
                     break;
@@ -87,11 +93,11 @@ public class AppGroupServiceImpl implements AppGroupService {
         }
     }
 
-    private void addGroups(TwitterAccount donor, TwitterAccount receiver, String receiverRestId) throws IOException {
+    private void addGroups(TwitterAccount donor, TwitterAccount receiver, String receiverRestId, OkHttpClient client) throws IOException {
         twitterApiRequests.setDmSettings(donor);
         twitterApiRequests.subscribe(donor, receiverRestId);
         twitterApiRequests.subscribe(receiver, donor.getRestId());
-        XUserGroup groups = twitterApiRequests.getUserConversations(donor.getUsername(), donor.getRestId(), donor.getProxy(), donor.getCookie(), donor.getAuthToken(), donor.getCsrfToken());
+        XUserGroup groups = twitterApiRequests.getUserConversations(client,donor.getUsername(), donor.getRestId(), donor.getProxy(), donor.getCookie(), donor.getAuthToken(), donor.getCsrfToken());
         for (Conversation conversation : groups.getInboxInitialState().getConversations().values()) {
             if (nonNull(conversation.getName())) {
                 try {

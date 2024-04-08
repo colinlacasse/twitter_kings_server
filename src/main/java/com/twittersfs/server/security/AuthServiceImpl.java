@@ -12,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.Random;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -93,12 +94,18 @@ public class AuthServiceImpl implements AuthService {
         final AuthDto user = userService.getUserAuthDto(resetData.getEmail());
         final String accessToken = jwtProvider.generateAccessToken(user);
         String email = "http://space-traff.site/new-password/" + accessToken;
-        sendEmail(email, resetData.getEmail());
+        sendEmail(email, resetData.getEmail(), "Reset-Password");
     }
 
     @Override
     public void resetPassword(String email, ResetPassword resetData) {
         userService.resetPassword(email, resetData.getPassword());
+    }
+    @Override
+    public String sendVerificationCode(String email) {
+        String code = generateRandomCode(6);
+        sendEmail("Enter code in telegram bot https://t.me/SpaceTraffSoftBot" + "\nVerification code : " + code, email, "Verification-Code");
+        return code;
     }
 
 
@@ -116,11 +123,20 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private void sendEmail(String msg, String email) {
+    private void sendEmail(String msg, String email, String subject) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(email);
-        message.setSubject("Reset-Password");
+        message.setSubject(subject);
         message.setText(msg);
         emailSender.send(message);
+    }
+
+    private String generateRandomCode(int length) {
+        StringBuilder code = new StringBuilder();
+        Random random = new Random();
+        for (int i = 0; i < length; i++) {
+            code.append(random.nextInt(10));
+        }
+        return code.toString();
     }
 }

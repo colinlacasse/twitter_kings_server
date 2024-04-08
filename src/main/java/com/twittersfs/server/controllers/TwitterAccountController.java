@@ -5,6 +5,8 @@ import com.twittersfs.server.dtos.twitter.account.TwitterAccountCreate;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountData;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountUpdate;
 import com.twittersfs.server.dtos.twitter.message.TwitterChatMessageDto;
+import com.twittersfs.server.dtos.twitter.statistic.XAccountStatistic;
+import com.twittersfs.server.dtos.twitter.statistic.XStatistic;
 import com.twittersfs.server.dtos.user.AccountSubscription;
 import com.twittersfs.server.entities.TwitterAccount;
 import com.twittersfs.server.enums.TwitterAccountStatus;
@@ -96,6 +98,7 @@ public class TwitterAccountController {
     public void resetFriends(@PathVariable Long twitterAccountId) {
         twitterAccountService.setFriendsDifferenceViewed(twitterAccountId);
     }
+
     @PostMapping("/{twitterAccountId}/reset-messages")
     public void resetMessages(@PathVariable Long twitterAccountId) {
         twitterAccountService.setMessagesDifferenceViewed(twitterAccountId);
@@ -104,5 +107,10 @@ public class TwitterAccountController {
     @PostMapping("/{twitterAccountId}/reset-retweets")
     public void resetRetweets(@PathVariable Long twitterAccountId) {
         twitterAccountService.setRetweetsDifferenceViewed(twitterAccountId);
+    }
+
+    @GetMapping("/{twitterAccountId}/statistic")
+    public XStatistic getAccountStatistic(@PathVariable Long twitterAccountId) {
+       return twitterAccountService.getAccountStatistic(twitterAccountId);
     }
 }

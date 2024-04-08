@@ -31,7 +31,7 @@ public class ScheduleUpdates {
         this.appGroupService = appGroupService;
     }
 
-    @Scheduled(fixedRate = 10800000)
+    @Scheduled(fixedRate = 7200000)
     public void updateCookiesAndRestart() throws InterruptedException {
         Thread.sleep(600000);
         log.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Updating cookies started!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");

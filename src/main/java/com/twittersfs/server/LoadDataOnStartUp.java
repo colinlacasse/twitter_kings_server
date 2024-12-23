@@ -27,7 +27,7 @@ public class LoadDataOnStartUp {
         List<TwitterAccount> accounts = twitterAccountRepo.findAll();
         for (TwitterAccount account : accounts) {
             TwitterAccountStatus status = account.getStatus();
-            if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
+            if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN) || status.equals(TwitterAccountStatus.UNEXPECTED_ERROR)) {
                 twitterAppService.run(account.getId());
             } else if (status.equals(TwitterAccountStatus.STOPPING)) {
                 twitterAccountRepo.updateStatus(account.getId(), TwitterAccountStatus.DISABLED);

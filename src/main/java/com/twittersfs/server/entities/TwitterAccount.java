@@ -29,6 +29,7 @@ public class TwitterAccount {
     private String cookie;
     private String username;
     private String email;
+    private Integer speed;
     private String password;
     private Integer groups;
     private Integer friends;

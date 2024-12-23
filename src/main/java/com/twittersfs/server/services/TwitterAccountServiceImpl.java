@@ -145,6 +145,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                     .findByUsername(parseTwitterUsername(username));
             if (twitterAccount.isEmpty()) {
                 twitterAccountRepo.updateUsername(twitterAccountId, username);
+                twitterAccountRepo.updateRestId(twitterAccountId, null);
             } else {
                 throw new RuntimeException("Twitter account with such username already exists");
             }
@@ -308,13 +309,31 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
     }
 
     @Override
-    public PageableResponse<TwitterAccountData> getTwitterAccountsByModel(Long modelId, int page, int size) {
-        Page<TwitterAccount> accounts = twitterAccountRepo.findByModel_Id(modelId, PageRequest.of(page, size));
-        return PageableResponse.<TwitterAccountData>builder()
-                .totalPages(accounts.getTotalPages())
-                .totalElements(accounts.getTotalElements())
-                .elements(filteredTwitterAccountList(accounts.getContent()))
-                .build();
+    public PageableResponse<TwitterAccountData> getTwitterAccountsByModel(String email, Long modelId, int page, int size) {
+        UserEntity user = userRepo.findByEmail(email);
+        List<ModelEntity> models = user.getModelEntities();
+
+        Optional<ModelEntity> matchingModelOptional = models.stream()
+                .filter(model -> model.getId().equals(modelId))
+                .findFirst();
+
+        if (matchingModelOptional.isPresent()) {
+            ModelEntity matchingModel = matchingModelOptional.get();
+            Page<TwitterAccount> accounts = twitterAccountRepo.findByModel_Id(modelId, PageRequest.of(page, size));
+            return PageableResponse.<TwitterAccountData>builder()
+                    .totalPages(accounts.getTotalPages())
+                    .totalElements(accounts.getTotalElements())
+                    .elements(filteredTwitterAccountList(accounts.getContent()))
+                    .build();
+        } else {
+            throw new RuntimeException("No access rights");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void updateTwitterAccountSpeed(Long twitterAccountId, Integer speed){
+        twitterAccountRepo.updateSpeed(twitterAccountId, speed);
     }
 
     @Override
@@ -329,6 +348,24 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
             return XStatistic.builder().xAccountStatistic(statistic).xAccountTimeZone(timeZone).build();
         } catch (Exception e) {
             throw new RuntimeException("Failed to get account statistic");
+        }
+    }
+
+    @Override
+    public TwitterAccountData getTwitterAccountData(String email, Long twitterAccountId) {
+        UserEntity user = userRepo.findByEmail(email);
+        List<ModelEntity> models = user.getModelEntities();
+
+        Optional<TwitterAccountData> accountDataOptional = models.stream()
+                .flatMap(model -> model.getTwitterAccounts().stream())
+                .filter(account -> account.getId().equals(twitterAccountId))
+                .map(this::fromTwitterAccount)
+                .findFirst();
+
+        if (accountDataOptional.isPresent()) {
+            return accountDataOptional.get();
+        } else {
+            throw new RuntimeException("No access rights");
         }
     }
 
@@ -409,6 +446,7 @@ public class TwitterAccountServiceImpl implements TwitterAccountService {
                 .username(entity.getUsername())
                 .model(entity.getModel().getName())
                 .password(entity.getPassword())
+                .speed(entity.getSpeed())
                 .groups(entity.getGroups())
                 .friends(entity.getFriends())
                 .messages(entity.getMessagesSent())

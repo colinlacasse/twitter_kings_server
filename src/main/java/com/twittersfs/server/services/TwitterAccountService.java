@@ -34,6 +34,8 @@ public interface TwitterAccountService {
     void setFriendsDifferenceViewed(Long twitterAccountId);
     List<TwitterAccount> findAll();
     PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(String email, TwitterAccountStatus status, int page, int size);
-    PageableResponse<TwitterAccountData> getTwitterAccountsByModel(Long modelId, int page, int size);
+    PageableResponse<TwitterAccountData> getTwitterAccountsByModel(String email, Long modelId, int page, int size);
     XStatistic getAccountStatistic(Long twitterAccountId);
+    TwitterAccountData getTwitterAccountData(String email, Long twitterAccountId);
+    void updateTwitterAccountSpeed(Long twitterAccountId, Integer speed);
 }

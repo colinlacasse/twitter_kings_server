@@ -21,6 +21,7 @@ public class TwitterAccountData {
     private String proxy;
     private String email;
     private String password;
+    private Integer speed;
     private String auth;
     private String ct0;
     private Integer groups;

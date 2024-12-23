@@ -93,4 +93,8 @@ public interface TwitterAccountRepo extends JpaRepository<TwitterAccount,Long> {
     @Query("UPDATE TwitterAccount t SET t.groupStatus = :groupStatus WHERE t.id = :accountId")
     void updateGroupStatus(@Param("accountId") Long accountId, @Param("groupStatus") GroupStatus groupStatus);
 
+    @Modifying
+    @Query("UPDATE TwitterAccount t SET t.speed = :newSpeed WHERE t.id = :accountId")
+    void updateSpeed(@Param("accountId") Long accountId, @Param("newSpeed") Integer newSpeed);
+
 }

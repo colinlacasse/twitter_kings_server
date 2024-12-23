@@ -64,13 +64,13 @@ public class AuthController {
         return info;
     }
 
-    @PostMapping("/reset-password")
-    public void resetPassword(@NotNull(message = "Request body must not be empty") @RequestBody ResetPassword data){
-        authService.sendResetPasswordEmail(data);
-    }
-
-    @PostMapping("/new-password")
-    public void setNewPassword(Authentication authentication, @NotNull(message = "Request body must not be empty") @RequestBody ResetPassword data){
-        authService.resetPassword(authentication.getPrincipal().toString(), data);
-    }
+//    @PostMapping("/reset-password")
+//    public void resetPassword(@NotNull(message = "Request body must not be empty") @RequestBody ResetPassword data){
+//        authService.sendResetPasswordEmail(data);
+//    }
+//
+//    @PostMapping("/new-password")
+//    public void setNewPassword(Authentication authentication, @NotNull(message = "Request body must not be empty") @RequestBody ResetPassword data){
+//        authService.resetPassword(authentication.getPrincipal().toString(), data);
+//    }
 }

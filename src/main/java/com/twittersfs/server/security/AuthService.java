@@ -9,7 +9,7 @@ public interface AuthService {
     JwtResponse getAccessToken(@NonNull String refreshToken);
     JwtResponse refresh(@NonNull String refreshToken);
     void logout(String email);
-    void sendResetPasswordEmail(ResetPassword email);
-    void resetPassword(String email, ResetPassword resetData);
-    String sendVerificationCode(String email);
+//    void sendResetPasswordEmail(ResetPassword email);
+//    void resetPassword(String email, ResetPassword resetData);
+//    String sendVerificationCode(String email);
 }

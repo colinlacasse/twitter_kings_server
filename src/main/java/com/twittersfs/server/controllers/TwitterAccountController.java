@@ -1,6 +1,7 @@
 package com.twittersfs.server.controllers;
 
 import com.twittersfs.server.dtos.common.PageableResponse;
+import com.twittersfs.server.dtos.twitter.account.SpeedDto;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountCreate;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountData;
 import com.twittersfs.server.dtos.twitter.account.TwitterAccountUpdate;
@@ -38,10 +39,11 @@ public class TwitterAccountController {
     }
 
     @GetMapping("/{modelId}")
-    public PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(@PathVariable Long modelId,
+    public PageableResponse<TwitterAccountData> getFilteredTwitterAccounts(Authentication authentication,
+                                                                           @PathVariable Long modelId,
                                                                            @RequestParam int page,
                                                                            @RequestParam int size) {
-        return twitterAccountService.getTwitterAccountsByModel(modelId, page, size);
+        return twitterAccountService.getTwitterAccountsByModel(authentication.getPrincipal().toString(),modelId, page, size);
     }
 
     @PostMapping("/{modelId}")
@@ -111,6 +113,17 @@ public class TwitterAccountController {
 
     @GetMapping("/{twitterAccountId}/statistic")
     public XStatistic getAccountStatistic(@PathVariable Long twitterAccountId) {
-       return twitterAccountService.getAccountStatistic(twitterAccountId);
+        return twitterAccountService.getAccountStatistic(twitterAccountId);
+    }
+
+    @PatchMapping("/speed")
+    public void updateSpeed(@Valid @NotNull(message = "Request body must not be null") @RequestBody SpeedDto speedDto) {
+        twitterAccountService.updateTwitterAccountSpeed(speedDto.getId(), speedDto.getSpeed());
+    }
+
+    @GetMapping("/data/{twitterAccountId}")
+    public TwitterAccountData getTwitterAccountData(Authentication authentication,
+                                                    @PathVariable Long twitterAccountId) {
+        return twitterAccountService.getTwitterAccountData(authentication.getPrincipal().toString(), twitterAccountId);
     }
 }

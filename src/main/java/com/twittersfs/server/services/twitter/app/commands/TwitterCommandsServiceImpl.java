@@ -243,8 +243,15 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                         if (nonNull(conversation.getName())) {
                             try {
                                 retweetCounter = processGroup(client, twitterAccount, conversation.getConversationID(), groupPostToRetweetParser(conversation.getName()), retweetCounter);
-                                if (retweetCounter >= 48) {
-                                    break;
+                                Integer speed = twitterAccount.getSpeed();
+                                if (nonNull(speed) && speed > 30) {
+                                    if (retweetCounter >= speed) {
+                                        break;
+                                    }
+                                } else {
+                                    if (retweetCounter >= 32) {
+                                        break;
+                                    }
                                 }
                             } catch (InterruptedException e) {
                                 log.error("Interrupted Exception in Executed method , account : " + twitterAccount.getUsername());
@@ -259,7 +266,12 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                     updateAccountStatistics(twitterAccountId, userData, twitterAccount, friendsBefore, messagesBefore, retweetsBefore);
                     status = twitterAccount.getStatus();
                     if (status.equals(TwitterAccountStatus.ACTIVE) || status.equals(TwitterAccountStatus.COOLDOWN)) {
-                        Thread.sleep(1920000);
+//                        Thread.sleep(1920000);
+                        if (retweetCounter <= 20) {
+                            Thread.sleep(generateRandomNumber(780000, 840000));
+                        } else {
+                            Thread.sleep(generateRandomNumber(1500000, 1560000));
+                        }
                     }
                 }
             } catch (XAccountProxyException | ProtocolException | ConnectException e) {
@@ -330,6 +342,8 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
                         XUserData userData = twitterApiRequests.getUserByScreenName(client, screenName, twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
                         retweetPinnedPost(userData, twitterAccount, client);
                         retweetCounter++;
+                        // 7 - 10 sec
+                        Thread.sleep(generateRandomNumber(7000, 10000));
                     } catch (XAccountProxyException | ProtocolException | ConnectException e) {
                         Thread.sleep(10000);
                     } catch (IndexOutOfBoundsException | XAccountRateLimitException | XAccountPermissionException |
@@ -427,7 +441,7 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     private void retweetPinnedPost(XUserData userData, TwitterAccount twitterAccount, OkHttpClient client) {
         String postId = userData.getData().getUser().getResult().getLegacy().getPinnedTweetIdsStr().get(0);
         if (nonNull(postId)) {
-            deleteRetweet(twitterAccount, postId, client);
+//            deleteRetweet(twitterAccount, postId, client);
             retweet(twitterAccount, postId, client);
         }
     }
@@ -638,12 +652,18 @@ public class TwitterCommandsServiceImpl implements TwitterCommandsService {
     private void retweet(TwitterAccount twitterAccount, String postId, OkHttpClient client) {
         try {
             twitterApiRequests.retweet(client, twitterAccount.getUsername(), postId, twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
+        } catch (XAccountPermissionException ignored) {
+            deleteRetweet(twitterAccount, postId, client);
+            try {
+                twitterApiRequests.retweet(client, twitterAccount.getUsername(), postId, twitterAccount.getProxy(), twitterAccount.getCookie(), twitterAccount.getAuthToken(), twitterAccount.getCsrfToken());
+            } catch (Exception e) {
+            }
         } catch (XAccountAuthException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.INVALID_COOKIES);
 //            twitterAuthService.login(twitterAccount);
         } catch (XAccountLockedException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.LOCKED);
-        } catch (XAccountRateLimitException | XAccountPermissionException | XAccountOverCapacityException |
+        } catch (XAccountRateLimitException | XAccountOverCapacityException |
                  SocketTimeoutException | SocketException | XAccountCooldownException ignored) {
         } catch (XAccountSuspendedException e) {
             twitterAccountService.updateTwitterAccountStatus(twitterAccount.getId(), TwitterAccountStatus.SUSPENDED);

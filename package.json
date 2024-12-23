@@ -1,0 +1,22 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/colinlacasse/kings_twitter_bot.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/colinlacasse/kings_twitter_bot/issues"
+  },
+  "homepage": "https://github.com/colinlacasse/kings_twitter_bot#readme",
+  "description": "",
+  "dependencies": {
+    "ui": "^0.2.4"
+  }
+}

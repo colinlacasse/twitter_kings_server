@@ -66,7 +66,6 @@ public class ScheduleUpdates {
                 }
             }
         }
-
     }
 
 //    @Scheduled(fixedRate = 86400000)

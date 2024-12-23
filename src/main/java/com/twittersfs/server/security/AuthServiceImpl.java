@@ -21,14 +21,13 @@ public class AuthServiceImpl implements AuthService {
 
     private final JwtProvider jwtProvider;
     private final TokenRepo tokenRepo;
-    private final JavaMailSender emailSender;
+//    private final JavaMailSender emailSender;
 
-    public AuthServiceImpl(UserService userService, PasswordEncoder passwordEncoder, JwtProvider jwtProvider, TokenRepo tokenRepo, JavaMailSender emailSender) {
+    public AuthServiceImpl(UserService userService, PasswordEncoder passwordEncoder, JwtProvider jwtProvider, TokenRepo tokenRepo) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
         this.tokenRepo = tokenRepo;
-        this.emailSender = emailSender;
     }
 
     @Override
@@ -89,24 +88,24 @@ public class AuthServiceImpl implements AuthService {
         tokenRepo.save(entity);
     }
 
-    @Override
-    public void sendResetPasswordEmail(ResetPassword resetData) {
-        final AuthDto user = userService.getUserAuthDto(resetData.getEmail());
-        final String accessToken = jwtProvider.generateAccessToken(user);
-        String email = "http://space-traff.site/new-password/" + accessToken;
-        sendEmail(email, resetData.getEmail(), "Reset-Password");
-    }
+//    @Override
+//    public void sendResetPasswordEmail(ResetPassword resetData) {
+//        final AuthDto user = userService.getUserAuthDto(resetData.getEmail());
+//        final String accessToken = jwtProvider.generateAccessToken(user);
+//        String email = "http://space-traff.site/new-password/" + accessToken;
+//        sendEmail(email, resetData.getEmail(), "Reset-Password");
+//    }
 
-    @Override
-    public void resetPassword(String email, ResetPassword resetData) {
-        userService.resetPassword(email, resetData.getPassword());
-    }
-    @Override
-    public String sendVerificationCode(String email) {
-        String code = generateRandomCode(6);
-        sendEmail("Enter code in telegram bot https://t.me/SpaceTraffSoftBot" + "\nVerification code : " + code, email, "Verification-Code");
-        return code;
-    }
+//    @Override
+//    public void resetPassword(String email, ResetPassword resetData) {
+//        userService.resetPassword(email, resetData.getPassword());
+//    }
+//    @Override
+//    public String sendVerificationCode(String email) {
+//        String code = generateRandomCode(6);
+//        sendEmail("Enter code in telegram bot https://t.me/SpaceTraffSoftBot" + "\nVerification code : " + code, email, "Verification-Code");
+//        return code;
+//    }
 
 
     private void saveToken(String email, String token) {
@@ -123,13 +122,13 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private void sendEmail(String msg, String email, String subject) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(email);
-        message.setSubject(subject);
-        message.setText(msg);
-        emailSender.send(message);
-    }
+//    private void sendEmail(String msg, String email, String subject) {
+//        SimpleMailMessage message = new SimpleMailMessage();
+//        message.setTo(email);
+//        message.setSubject(subject);
+//        message.setText(msg);
+//        emailSender.send(message);
+//    }
 
     private String generateRandomCode(int length) {
         StringBuilder code = new StringBuilder();
